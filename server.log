@@ -1,0 +1,18 @@
+INFO:     Will watch for changes in these directories: ['C:\\Users\\USUARIO\\Downloads\\fb-catalog-dashboard\\fb-catalog-dashboard']
+INFO:     Uvicorn running on http://0.0.0.0:5000 (Press CTRL+C to quit)
+INFO:     Started reloader process [20796] using WatchFiles
+WARNING:  WatchFiles detected changes in 'app\database.py', 'app\models.py'. Reloading...
+Traceback (most recent call last):
+  File "C:\Users\USUARIO\Downloads\fb-catalog-dashboard\fb-catalog-dashboard\run.py", line 5, in <module>
+    uvicorn.run("app.main:app", host="0.0.0.0", port=5000, reload=True)
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\USUARIO\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\uvicorn\main.py", line 601, in run
+    ChangeReload(config, target=server.run, sockets=[sock]).run()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\USUARIO\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\uvicorn\supervisors\basereload.py", line 59, in run
+    self.restart()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\USUARIO\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\uvicorn\supervisors\basereload.py", line 91, in restart
+    os.kill(self.process.pid, signal.CTRL_C_EVENT)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [WinError 6] Controlador no válido

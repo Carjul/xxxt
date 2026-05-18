@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}FB Catalog Dashboard{% endblock %}</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+:root {
+  --bg: #0F1419; --panel: #161B22; --border: #21262D; --text: #E6EDF3; --muted: #8B949E;
+  --accent: #3B82F6; --ok: #10B981; --warn: #F59E0B; --err: #EF4444;
+  --nav-1: #60A5FA; --nav-2: #94A3B8; --nav-3: #A78BFA; --nav-4: #34D399; --nav-5: #FBBF24; --nav-6: #F87171;
+}
+html:not(.dark) {
+  --bg: #FFFFFF; --panel: #F6F8FA; --border: #D0D7DE; --text: #1F2328; --muted: #57606A;
+  --nav-1: #2563EB; --nav-2: #475569; --nav-3: #7C3AED; --nav-4: #059669; --nav-5: #D97706; --nav-6: #DC2626;
+}
+* { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+body { background: var(--bg); color: var(--text); margin: 0; min-height: 100vh; }
+.bg-bg { background: var(--bg) !important; }
+.bg-panel { background: var(--panel) !important; }
+.border-border { border-color: var(--border) !important; }
+.text-muted { color: var(--muted) !important; }
+.hover\:bg-border:hover { background: var(--border) !important; }
+.text-accent { color: var(--accent) !important; }
+.bg-accent { background: var(--accent) !important; }
+.bg-accent\/80:hover { background: var(--accent) !important; opacity: 0.85; }
+.text-ok { color: var(--ok) !important; }
+.bg-ok { background: var(--ok) !important; }
+.bg-ok\/80:hover { background: var(--ok) !important; opacity: 0.85; }
+.text-warn { color: var(--warn) !important; }
+.text-err { color: var(--err) !important; }
+.bg-err\/10 { background: rgba(239,68,68,0.1); }
+.bg-warn\/10 { background: rgba(245,158,11,0.1); }
+.border-err { border-color: var(--err) !important; }
+.border-warn { border-color: var(--warn) !important; }
+input, select, textarea {
+  background: var(--bg) !important; color: var(--text) !important;
+  border: 1px solid var(--border) !important; border-radius: 4px;
+}
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.tt { display: inline-flex; align-items: center; cursor: default; }
+.tt > .tt-icon { cursor: default; }
+.tt > .tt-icon { width: 14px; height: 14px; color: var(--muted); margin-left: 4px; flex-shrink: 0; }
+.tt-body {
+  display: none; position: fixed; max-width: 280px; min-width: 200px;
+  background: var(--panel); color: var(--text); border: 1px solid var(--border);
+  padding: 8px 12px; border-radius: 6px; font-size: 12px; line-height: 1.4;
+  z-index: 9999; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  font-weight: normal; white-space: normal; text-align: left;
+  pointer-events: none;
+}
+
+.lucide-icon { width: 18px; height: 18px; stroke-width: 1.75; }
+.sidebar-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; font-size: 14px; color: var(--text); text-decoration: none; transition: background 0.12s; }
+.sidebar-item:hover { background: var(--border); }
+.sidebar-item .lucide-icon { stroke-width: 2; }
+.nav-home .lucide-icon  { color: var(--nav-1); }
+.nav-setup .lucide-icon { color: var(--nav-2); }
+.nav-cat .lucide-icon   { color: var(--nav-3); }
+.nav-camp .lucide-icon  { color: var(--nav-4); }
+.nav-tpl .lucide-icon   { color: var(--nav-5); }
+.nav-trick .lucide-icon { color: var(--nav-6); }
+
+.title-home, .title-home .lucide-icon  { color: var(--nav-1); }
+.title-setup, .title-setup .lucide-icon { color: var(--nav-2); }
+.title-cat, .title-cat .lucide-icon   { color: var(--nav-3); }
+.title-camp, .title-camp .lucide-icon  { color: var(--nav-4); }
+.title-tpl, .title-tpl .lucide-icon   { color: var(--nav-5); }
+.title-trick, .title-trick .lucide-icon { color: var(--nav-6); }
+
+.icon-btn { padding: 6px; border-radius: 6px; background: transparent; border: 1px solid var(--border); cursor: pointer; color: var(--text); display: inline-flex; align-items: center; justify-content: center; }
+.icon-btn:hover { background: var(--border); }
+
+.tag-clean { background: rgba(59,130,246,0.15) !important; color: #60A5FA !important; border: 1px solid rgba(59,130,246,0.4) !important; }
+.tag-dirty { background: rgba(239,68,68,0.15) !important; color: #F87171 !important; border: 1px solid rgba(239,68,68,0.4) !important; }
+.tag-select { font-weight: 500; }
+.tag-pill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; }
+
+table th, table td { white-space: nowrap; }
+table th .tt, table td .tt { display: inline-flex; vertical-align: middle; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="flex min-h-screen">
+  <aside class="w-64 bg-panel border-r border-border flex flex-col" style="border-right-width: 1px;">
+    <div class="px-6 py-5 border-b border-border" style="border-bottom-width: 1px;">
+      <a href="/" class="text-lg font-bold flex items-center gap-2" style="color: var(--text); text-decoration: none;">
+        <i data-lucide="layout-dashboard" class="lucide-icon" style="color: var(--accent);"></i>
+        FB Catalog
+      </a>
+      <div class="text-xs text-muted mt-1" data-i18n="subtitle">Dashboard de Campañas</div>
+    </div>
+    <nav class="flex-1 px-3 py-4 space-y-1 text-sm">
+      <a href="/" class="sidebar-item nav-home"><i data-lucide="home" class="lucide-icon"></i><span data-i18n="nav.home">Inicio</span></a>
+      <a href="/setup" class="sidebar-item nav-setup"><i data-lucide="settings" class="lucide-icon"></i><span data-i18n="nav.setup">Configuración</span></a>
+      <a href="/catalogs" class="sidebar-item nav-cat"><i data-lucide="package" class="lucide-icon"></i><span data-i18n="nav.catalogs">Catálogos</span></a>
+      <a href="/campaigns" class="sidebar-item nav-camp"><i data-lucide="rocket" class="lucide-icon"></i><span data-i18n="nav.campaigns">Campañas</span></a>
+      <a href="/templates" class="sidebar-item nav-tpl"><i data-lucide="bookmark" class="lucide-icon"></i><span data-i18n="nav.templates">Plantillas</span></a>
+      <a href="/trick" class="sidebar-item nav-trick"><i data-lucide="venetian-mask" class="lucide-icon"></i><span data-i18n="nav.trick">Truco automático</span></a>
+    </nav>
+    <div class="px-4 py-4 border-t border-border flex items-center justify-between" style="border-top-width: 1px;">
+      <span class="text-xs text-muted">v2.2</span>
+      <div class="flex items-center gap-2">
+        <button id="theme-toggle" class="icon-btn" title="Cambiar tema">
+          <i id="theme-icon" data-lucide="moon" class="lucide-icon"></i>
+        </button>
+        <button id="lang-toggle" class="icon-btn" title="Cambiar idioma" style="font-weight: 600; font-size: 12px; padding: 6px 10px;">
+          <span id="lang-label">ES</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="flex-1 overflow-x-auto">
+    <div class="max-w-7xl mx-auto px-8 py-8">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+
+<script>
+const I18N = {
+  es: {
+    "subtitle": "Dashboard de Campañas",
+    "nav.home": "Inicio", "nav.setup": "Configuración", "nav.catalogs": "Catálogos",
+    "nav.campaigns": "Campañas", "nav.templates": "Plantillas", "nav.trick": "Truco automático",
+    "th.tag": "Etiqueta", "th.video_label": "Etiqueta de Video", "th.retailer_id": "ID del Producto",
+    "th.title": "Título", "th.description": "Descripción", "th.availability": "Disponibilidad",
+    "th.price": "Precio", "th.link": "Link (Landing)", "th.image": "URL Imagen",
+    "th.video": "URL Video", "th.brand": "Marca", "th.actions": "Acciones",
+    "th.name": "Nombre", "th.products": "Productos", "th.synced": "Sincronizado a Meta",
+    "th.feed_url": "URL Feed pública", "th.account": "Cuenta", "th.fb_ids": "FB IDs",
+    "th.trick": "Truco", "th.status": "Estado", "th.created": "Creada",
+    "btn.save_all": "Guardar todo", "btn.add_row": "Agregar fila",
+    "btn.back_to_products": "Volver a productos", "btn.back_to_catalogs": "Volver a catálogos",
+    "btn.back_to_sets": "Volver a sets", "btn.new_set": "Nuevo set", "btn.new_catalog": "Nuevo catálogo",
+    "btn.new_campaign": "Nueva campaña", "btn.delete": "Borrar", "btn.use": "Usar",
+    "btn.run_now": "Correr ahora",
+  },
+  en: {
+    "subtitle": "Campaign Dashboard",
+    "nav.home": "Home", "nav.setup": "Settings", "nav.catalogs": "Catalogs",
+    "nav.campaigns": "Campaigns", "nav.templates": "Templates", "nav.trick": "Auto trick",
+    "th.tag": "Tag", "th.video_label": "Video Label", "th.retailer_id": "Product ID",
+    "th.title": "Title", "th.description": "Description", "th.availability": "Availability",
+    "th.price": "Price", "th.link": "Link (Lander)", "th.image": "Image URL",
+    "th.video": "Video URL", "th.brand": "Brand", "th.actions": "Actions",
+    "th.name": "Name", "th.products": "Products", "th.synced": "Synced to Meta",
+    "th.feed_url": "Public Feed URL", "th.account": "Account", "th.fb_ids": "FB IDs",
+    "th.trick": "Trick", "th.status": "Status", "th.created": "Created",
+    "btn.save_all": "Save all", "btn.add_row": "Add row",
+    "btn.back_to_products": "Back to products", "btn.back_to_catalogs": "Back to catalogs",
+    "btn.back_to_sets": "Back to sets", "btn.new_set": "New set", "btn.new_catalog": "New catalog",
+    "btn.new_campaign": "New campaign", "btn.delete": "Delete", "btn.use": "Use",
+    "btn.run_now": "Run now",
+  }
+};
+
+function applyTheme(theme) {
+  const html = document.documentElement;
+  if (theme === 'light') html.classList.remove('dark'); else html.classList.add('dark');
+  const themeIcon = document.getElementById('theme-icon');
+  if (themeIcon) {
+    themeIcon.setAttribute('data-lucide', theme === 'light' ? 'sun' : 'moon');
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+function applyLang(lang) {
+  document.documentElement.lang = lang;
+  const lbl = document.getElementById('lang-label');
+  if (lbl) lbl.textContent = lang.toUpperCase();
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const k = el.getAttribute('data-i18n');
+    if (I18N[lang] && I18N[lang][k]) el.textContent = I18N[lang][k];
+  });
+}
+
+// Tooltip positioned in viewport, never clipped. Uses mouseover/mouseout which bubble.
+function setupTooltips() {
+  document.addEventListener('mouseover', e => {
+    const tt = e.target && e.target.closest && e.target.closest('.tt');
+    if (!tt || tt._shown) return;
+    const body = tt.querySelector('.tt-body');
+    if (!body) return;
+    tt._shown = true;
+    body.style.visibility = 'hidden';
+    body.style.display = 'block';
+    const rect = tt.getBoundingClientRect();
+    const bw = body.offsetWidth || 280;
+    const bh = body.offsetHeight || 60;
+    let left = rect.left + rect.width / 2 - bw / 2;
+    if (left < 10) left = 10;
+    if (left + bw > window.innerWidth - 10) left = window.innerWidth - bw - 10;
+    let top = rect.top - bh - 8;
+    if (top < 10) top = rect.bottom + 8;
+    body.style.left = left + 'px';
+    body.style.top = top + 'px';
+    body.style.visibility = 'visible';
+  });
+  document.addEventListener('mouseout', e => {
+    const tt = e.target && e.target.closest && e.target.closest('.tt');
+    if (!tt) return;
+    if (tt.contains(e.relatedTarget)) return;
+    const body = tt.querySelector('.tt-body');
+    if (body) body.style.display = 'none';
+    tt._shown = false;
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.lucide) lucide.createIcons();
+  applyTheme(localStorage.getItem('theme') || 'dark');
+  applyLang(localStorage.getItem('lang') || 'es');
+  setupTooltips();
+
+  document.getElementById('theme-toggle').addEventListener('click', (e) => {
+    e.preventDefault();
+    const next = (localStorage.getItem('theme') || 'dark') === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('theme', next); applyTheme(next);
+  });
+  document.getElementById('lang-toggle').addEventListener('click', (e) => {
+    e.preventDefault();
+    const next = (localStorage.getItem('lang') || 'es') === 'es' ? 'en' : 'es';
+    localStorage.setItem('lang', next); applyLang(next);
+  });
+});
+</script>
+</body>
+</html>

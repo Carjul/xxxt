@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, tip %}
+{% block content %}
+<div class="mb-2 text-sm text-muted flex items-center gap-1">
+  <a href="/catalogs" class="hover:text-accent">Catálogos</a> /
+  <a href="/catalogs/{{ catalog.id }}/products" class="hover:text-accent">{{ catalog.name }}</a> / Sets
+</div>
+<div class="flex justify-between items-center mb-3">
+  <h1 class="text-2xl font-bold flex items-center gap-3 title-cat">{{ icon('layers') }}Sets de Productos
+    {{ tip("Cada set es una combinación específica de productos del catálogo. Una campaña usa UN set para mostrar qué creativos rotar. Crea variaciones para el truco: ej '1 sucio + 2 limpios'.") }}
+  </h1>
+  <div class="flex gap-2">
+    <a href="/catalogs/{{ catalog.id }}/products" class="bg-panel border border-border hover:bg-border px-3 py-2 rounded text-sm flex items-center gap-2">{{ icon('arrow-left') }}<span data-i18n="btn.back_to_products">Volver a productos</span></a>
+    <a href="/catalogs/{{ catalog.id }}/sets/new" class="bg-accent hover:bg-accent/80 text-white px-4 py-2 rounded font-medium flex items-center gap-2">{{ icon('plus') }}<span data-i18n="btn.new_set">Nuevo set</span></a>
+  </div>
+</div>
+
+{% if not sets %}
+<div class="bg-panel border border-border rounded-lg p-8 text-center text-muted">
+  Aún no tienes sets. Cada set es una combinación de productos para usar en una campaña.
+</div>
+{% else %}
+<div class="bg-panel border border-border rounded-lg overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-bg border-b border-border text-xs">
+      <tr>
+        <th class="text-left px-4 py-3 whitespace-nowrap"><span data-i18n="th.name">Nombre</span></th>
+        <th class="text-left px-4 py-3 whitespace-nowrap"><span data-i18n="th.products">Productos</span></th>
+        <th class="text-left px-4 py-3 whitespace-nowrap">
+          <div class="flex items-center"><span data-i18n="th.synced">Sincronizado a Meta</span>
+            {{ tip("Si tiene un FB Set ID, significa que el set existe en Commerce Manager y puede usarse en campañas. Si dice 'No sincronizado', no se puede usar todavía.") }}
+          </div>
+        </th>
+        <th class="text-left px-4 py-3 whitespace-nowrap"><span data-i18n="th.actions">Acciones</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in sets %}
+      <tr class="border-t border-border">
+        <td class="px-4 py-3 font-mono">{{ s.name }}</td>
+        <td class="px-4 py-3 text-xs text-muted">{{ s.retailer_ids | join(', ') }}</td>
+        <td class="px-4 py-3 text-xs">
+          {% if s.fb_set_id %}
+            <span class="text-ok inline-flex items-center gap-1">{{ icon('check-circle') }}{{ s.fb_set_id }}</span>
+          {% else %}
+            <span class="text-warn inline-flex items-center gap-1">{{ icon('alert-circle') }}No sincronizado</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 space-x-2 whitespace-nowrap">
+          <a href="/catalogs/{{ catalog.id }}/sets/{{ s.id }}/edit" class="text-accent text-xs inline-flex items-center gap-1">{{ icon('pencil') }}Editar</a>
+          {% if not s.fb_set_id %}
+          <form method="post" action="/catalogs/{{ catalog.id }}/sets/{{ s.id }}/sync" class="inline">
+            <button class="text-ok text-xs inline-flex items-center gap-1">{{ icon('refresh-cw') }}Sincronizar</button>
+          </form>
+          {% endif %}
+          <form method="post" action="/catalogs/{{ catalog.id }}/sets/{{ s.id }}/delete" class="inline" onsubmit="return confirm('¿Borrar este set?')">
+            <button class="text-err text-xs inline-flex items-center gap-1">{{ icon('trash-2') }}Borrar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

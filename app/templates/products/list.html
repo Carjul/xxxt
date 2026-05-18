@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% from "_macros.html" import tip, icon %}
+{% block content %}
+<div class="mb-2 text-sm text-muted">
+  <a href="/catalogs" class="hover:text-accent">Catálogos</a> / {{ catalog.name }}
+</div>
+<div class="flex justify-between items-center mb-2">
+  <h1 class="text-2xl font-bold flex items-center gap-2 title-cat">
+    {{ icon('table') }}Productos del catálogo
+    {{ tip("Aquí editas los productos del catálogo como si fuera una hoja de Google Sheets. Cada fila es un producto que aparecerá en tus anuncios. Edita las celdas directamente y dale clic a Guardar todo.") }}
+  </h1>
+  <div class="flex gap-2">
+    <a href="/catalogs/{{ catalog.id }}/sets" class="bg-panel border border-border hover:bg-border px-3 py-2 rounded text-sm flex items-center gap-2">{{ icon('layers') }}Sets</a>
+  </div>
+</div>
+<p class="text-muted text-sm mb-4">Catálogo: <code>{{ catalog.name }}</code> • Feed CSV: <code class="text-xs">/feed/{{ catalog.feed_slug }}.csv</code></p>
+
+<form method="post" action="/catalogs/{{ catalog.id }}/products/bulk" class="bg-panel border border-border rounded-lg overflow-x-auto">
+  <table class="w-full text-xs" id="products-table">
+    <thead class="bg-bg border-b border-border">
+      <tr>
+        <th class="px-2 py-2 text-left whitespace-nowrap">
+          <div class="flex items-center"><span data-i18n="th.tag">Etiqueta</span>{{ tip("'Limpio' = creativo compliance que se apaga después. 'Sucio' = creativo agresivo que sigue corriendo.") }}</div>
+        </th>
+        <th class="px-2 py-2 text-left whitespace-nowrap">
+          <div class="flex items-center"><span data-i18n="th.video_label">Etiqueta de Video</span>{{ tip("Nomenclatura del video (ej: 05_L01_V1). Se usa para nombrar los sets automáticamente.") }}</div>
+        </th>
+        <th class="px-2 py-2 text-left whitespace-nowrap">
+          <div class="flex items-center"><span data-i18n="th.retailer_id">ID del Producto</span>{{ tip("Código único que identifica este producto (ej: 1, 2, P001). Puede ser cualquier texto único que no se repita en otro producto. Lo usa Meta internamente. Si no sabes qué poner, usa números: 1, 2, 3...") }}</div>
+        </th>
+        <th class="px-2 py-2 text-left whitespace-nowrap">
+          <div class="flex items-center"><span data-i18n="th.title">Título</span>{{ tip("Título del anuncio (lo que sale como headline). Máx 200 caracteres.") }}</div>
+        </th>
+        <th class="px-2 py-2 text-left whitespace-nowrap">
+          <div class="flex items-center"><span data-i18n="th.description">Descripción</span>{{ tip("Texto principal del anuncio (sale arriba del video). Máx 9999 caracteres.") }}</div>
+        </th>
+        <th class="px-2 py-2 text-left whitespace-nowrap">
+          <div class="flex items-center"><span data-i18n="th.availability">Disponibilidad</span>{{ tip("'in stock' = corre normalmente. 'out of stock' = se apaga (este es el truco).") }}</div>
+        </th>
+        <th class="px-2 py-2 text-left whitespace-nowrap"><span data-i18n="th.price">Precio</span></th>
+        <th class="px-2 py-2 text-left whitespace-nowrap">
+          <div class="flex items-center"><span data-i18n="th.link">Link (Landing)</span>{{ tip("URL completa a donde mandas el tráfico. Las UTMs se agregan automáticamente en el creative.") }}</div>
+        </th>
+        <th class="px-2 py-2 text-left whitespace-nowrap">
+          <div class="flex items-center"><span data-i18n="th.image">URL Imagen</span>{{ tip("URL directa al .jpg/.png (mín 500x500). Se usa como thumbnail cuando el video carga.") }}</div>
+        </th>
+        <th class="px-2 py-2 text-left whitespace-nowrap">
+          <div class="flex items-center"><span data-i18n="th.video">URL Video</span>{{ tip("URL directa al .mp4 (Systeme.io, Bunny.net, Cloudflare R2, etc.). Si está vacío, solo se usa la imagen.") }}</div>
+        </th>
+        <th class="px-2 py-2 text-left whitespace-nowrap"><span data-i18n="th.brand">Marca</span></th>
+        <th class="px-2 py-2 whitespace-nowrap"></th>
+      </tr>
+    </thead>
+    <tbody id="rows">
+      {% for p in products %}
+      <tr class="border-t border-border" data-row-id="{{ p.id }}">
+        <input spellcheck="false" type="hidden" name="id_{{ loop.index0 }}" value="{{ p.id }}">
+        <td class="px-1 py-1">
+          <select name="tag_{{ loop.index0 }}" class="tag-select w-full text-xs border rounded px-1 py-1" data-tag="{{ p.tag }}">
+            <option value="dirty" {% if p.tag == 'dirty' %}selected{% endif %}>Sucio</option>
+            <option value="clean" {% if p.tag == 'clean' %}selected{% endif %}>Limpio</option>
+          </select>
+        </td>
+        <td class="px-1 py-1"><input spellcheck="false" name="video_label_{{ loop.index0 }}" value="{{ p.video_label or '' }}" class="w-24 text-xs border rounded px-1 py-1 font-mono" placeholder="05_L01_V1"></td>
+        <td class="px-1 py-1"><input spellcheck="false" name="retailer_id_{{ loop.index0 }}" value="{{ p.retailer_id }}" class="w-20 text-xs border rounded px-1 py-1 font-mono" required></td>
+        <td class="px-1 py-1"><input spellcheck="false" name="title_{{ loop.index0 }}" value="{{ p.title }}" class="w-48 text-xs border rounded px-1 py-1" required></td>
+        <td class="px-1 py-1"><textarea spellcheck="false" name="description_{{ loop.index0 }}" rows="2" class="w-56 text-xs border rounded px-1 py-1">{{ p.description }}</textarea></td>
+        <td class="px-1 py-1">
+          <select name="availability_{{ loop.index0 }}" class="w-full text-xs border rounded px-1 py-1">
+            <option value="in stock" {% if p.availability == 'in stock' %}selected{% endif %}>in stock</option>
+            <option value="out of stock" {% if p.availability == 'out of stock' %}selected{% endif %}>out of stock</option>
+          </select>
+        </td>
+        <td class="px-1 py-1"><input spellcheck="false" name="price_{{ loop.index0 }}" value="{{ p.price }}" class="w-20 text-xs border rounded px-1 py-1"></td>
+        <td class="px-1 py-1"><input spellcheck="false" name="link_{{ loop.index0 }}" value="{{ p.link }}" class="w-48 text-xs border rounded px-1 py-1" required></td>
+        <td class="px-1 py-1"><input spellcheck="false" name="image_link_{{ loop.index0 }}" value="{{ p.image_link }}" class="w-48 text-xs border rounded px-1 py-1" required></td>
+        <td class="px-1 py-1"><input spellcheck="false" name="video_url_{{ loop.index0 }}" value="{{ p.video_url or '' }}" class="w-48 text-xs border rounded px-1 py-1"></td>
+        <td class="px-1 py-1"><input spellcheck="false" name="brand_{{ loop.index0 }}" value="{{ p.brand }}" class="w-20 text-xs border rounded px-1 py-1"></td>
+        <td class="px-1 py-1">
+          <a href="/catalogs/{{ catalog.id }}/products/{{ p.id }}/delete-confirm" onclick="return deleteRow(event, this, {{ p.id }})" class="text-err text-xs">{{ icon('trash-2') }}</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="p-4 border-t border-border flex items-center gap-3 flex-wrap">
+    <input spellcheck="false" type="hidden" name="row_count" id="row_count" value="{{ products|length }}">
+    <button type="button" onclick="addRow()" class="bg-panel border border-border hover:bg-border px-3 py-2 rounded text-sm flex items-center gap-2">{{ icon('plus') }}<span data-i18n="btn.add_row">Agregar fila</span></button>
+    <button type="submit" class="bg-accent hover:bg-accent/80 text-white px-4 py-2 rounded text-sm flex items-center gap-2">{{ icon('save') }}<span data-i18n="btn.save_all">Guardar todo</span></button>
+    {{ tip("Los cambios se guardan localmente en este dashboard. Para que Meta vea los cambios, el feed se refresca según la programación (diariamente) o desde Commerce Manager → Actualizar ahora.") }}
+  </div>
+  <div class="px-4 pb-4">
+    <a href="/catalogs" class="text-accent text-sm inline-flex items-center gap-1">{{ icon('arrow-left') }}<span data-i18n="btn.back_to_catalogs">Volver a catálogos</span></a>
+  </div>
+</form>
+
+<script>
+function addRow() {
+  const idx = parseInt(document.getElementById('row_count').value);
+  document.getElementById('row_count').value = idx + 1;
+  const html = `
+  <tr class="border-t border-border" data-row-id="new">
+    <input spellcheck="false" type="hidden" name="id_${idx}" value="">
+    <td class="px-1 py-1"><select name="tag_${idx}" class="tag-select w-full text-xs border rounded px-1 py-1" data-tag="dirty"><option value="dirty">Sucio</option><option value="clean">Limpio</option></select></td>
+    <td class="px-1 py-1"><input spellcheck="false" name="video_label_${idx}" class="w-24 text-xs border rounded px-1 py-1 font-mono" placeholder="05_L01_V1"></td>
+    <td class="px-1 py-1"><input spellcheck="false" name="retailer_id_${idx}" class="w-20 text-xs border rounded px-1 py-1 font-mono" required></td>
+    <td class="px-1 py-1"><input spellcheck="false" name="title_${idx}" class="w-48 text-xs border rounded px-1 py-1" required></td>
+    <td class="px-1 py-1"><textarea spellcheck="false" name="description_${idx}" rows="2" class="w-56 text-xs border rounded px-1 py-1"></textarea></td>
+    <td class="px-1 py-1"><select name="availability_${idx}" class="w-full text-xs border rounded px-1 py-1"><option value="in stock">in stock</option><option value="out of stock">out of stock</option></select></td>
+    <td class="px-1 py-1"><input spellcheck="false" name="price_${idx}" value="10.00 USD" class="w-20 text-xs border rounded px-1 py-1"></td>
+    <td class="px-1 py-1"><input spellcheck="false" name="link_${idx}" class="w-48 text-xs border rounded px-1 py-1" required></td>
+    <td class="px-1 py-1"><input spellcheck="false" name="image_link_${idx}" class="w-48 text-xs border rounded px-1 py-1" required></td>
+    <td class="px-1 py-1"><input spellcheck="false" name="video_url_${idx}" class="w-48 text-xs border rounded px-1 py-1"></td>
+    <td class="px-1 py-1"><input spellcheck="false" name="brand_${idx}" value="Brand" class="w-20 text-xs border rounded px-1 py-1"></td>
+    <td class="px-1 py-1"></td>
+  </tr>`;
+  document.getElementById('rows').insertAdjacentHTML('beforeend', html);
+  applyTagColors();
+  lucide.createIcons();
+}
+
+function applyTagColors() {
+  document.querySelectorAll('.tag-select').forEach(sel => {
+    const paint = () => {
+      sel.classList.toggle('tag-clean', sel.value === 'clean');
+      sel.classList.toggle('tag-dirty', sel.value === 'dirty');
+    };
+    paint();
+    sel.removeEventListener('change', sel._paint);
+    sel._paint = paint;
+    sel.addEventListener('change', paint);
+  });
+}
+document.addEventListener('DOMContentLoaded', applyTagColors);
+
+function deleteRow(e, link, id) {
+  e.preventDefault();
+  if (!confirm('¿Borrar este producto?')) return false;
+  fetch(`/catalogs/{{ catalog.id }}/products/${id}/delete`, {method: 'POST'})
+    .then(() => location.reload());
+  return false;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+{% from "_macros.html" import tip, icon %}
+{% block content %}
+<h1 class="text-3xl font-bold mb-6 flex items-center gap-3 title-camp">{{ icon('rocket') }}Nueva Campaña</h1>
+
+{% if error %}<div class="bg-err/10 border border-err rounded p-3 mb-4 text-sm text-err">{{ error }}</div>{% endif %}
+
+<form method="post" action="/campaigns" class="space-y-6 max-w-4xl">
+
+  {% if templates %}
+  <div class="bg-panel border border-border rounded-lg p-5">
+    <h3 class="font-semibold mb-2 flex items-center gap-2">{{ icon('bookmark') }}Cargar plantilla
+      {{ tip("Si guardaste configuraciones antes (ej: 'BizOp USA 40+ CBO $10'), puedes cargarlas aquí y se autollena el formulario.") }}
+    </h3>
+    <div class="flex gap-2 items-center">
+      <select id="template-loader" class="bg-bg border border-border rounded px-3 py-2 text-sm flex-1">
+        <option value="">— Empezar desde cero —</option>
+        {% for t in templates %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+      </select>
+      <button type="button" id="load-tpl" class="bg-accent hover:bg-accent/80 text-white px-3 py-2 rounded text-sm">Cargar</button>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="bg-panel border border-border rounded-lg p-5 space-y-4">
+    <h3 class="font-semibold flex items-center gap-2">{{ icon('info') }}Información básica</h3>
+    <div>
+      <label class="block text-sm font-medium mb-1">Nombre de campaña</label>
+      <input spellcheck="false" name="name" required class="w-full bg-bg border border-border rounded px-3 py-2"
+             value="{{ form.name if form else '' }}" placeholder="CAT-THM72-2026-05-10">
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1 flex items-center">Tipo
+          {{ tip("CBO = el presupuesto vive a nivel campaña y Meta lo distribuye automáticamente. ABO = pones el presupuesto en cada ad set manualmente. Si eliges ABO, el monto del presupuesto se aplica al ad set, no a la campaña.") }}
+        </label>
+        <select name="cbo_or_abo" class="w-full bg-bg border border-border rounded px-3 py-2">
+          <option value="CBO" {% if form and form.cbo_or_abo == 'CBO' %}selected{% endif %}>CBO (presupuesto en campaña)</option>
+          <option value="ABO" {% if form and form.cbo_or_abo == 'ABO' %}selected{% endif %}>ABO (presupuesto en ad set)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1 flex items-center">Objetivo
+          {{ tip("Las campanas de este dashboard usan catalogo, asi que por ahora solo se soporta OUTCOME_SALES.") }}
+        </label>
+        <select name="objective" class="w-full bg-bg border border-border rounded px-3 py-2">
+          {% for o in objectives %}<option value="{{ o }}" {% if form and form.objective == o %}selected{% endif %}>{{ o }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-panel border border-border rounded-lg p-5 space-y-4">
+    <h3 class="font-semibold flex items-center gap-2">{{ icon('dollar-sign') }}Presupuesto y puja</h3>
+    <div class="grid grid-cols-3 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1 flex items-center">Tipo
+          {{ tip("'Diario' = gasta hasta X cada día. 'Total' = gasta X en total durante todo el período de la campaña.") }}
+        </label>
+        <select name="budget_type" class="w-full bg-bg border border-border rounded px-3 py-2">
+          <option value="daily">Diario</option>
+          <option value="lifetime" disabled>Total (proximamente)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Monto (USD)</label>
+        <input spellcheck="false" type="number" step="0.01" name="budget_amount" required class="w-full bg-bg border border-border rounded px-3 py-2" value="{{ form.budget_amount if form else '10' }}">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1 flex items-center">Límite de gasto de campaña
+          {{ tip("Campaign spending limit en Meta. Es un máximo total que la campaña NO puede superar (hard cap). Opcional. Ejemplo: si pones 300, la campaña se pausa cuando llegue a $300 gastados.") }}
+        </label>
+        <input spellcheck="false" type="number" step="0.01" name="spend_cap" class="w-full bg-bg border border-border rounded px-3 py-2" placeholder="Opcional" value="{{ form.spend_cap if form else '' }}">
+      </div>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1 flex items-center">Estrategia de puja
+        {{ tip("Volumen más alto = sin tope, Meta optimiza por máximo volumen. Cost cap = pones un CPA objetivo. ROAS = pones un ROAS mínimo. Bid cap = pones un tope duro al precio de puja.") }}
+      </label>
+      <select name="bid_strategy" id="bid-strategy" class="w-full bg-bg border border-border rounded px-3 py-2">
+        {% for code, label in bid_strategies %}<option value="{{ code }}" {% if form and form.bid_strategy == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1 flex items-center">Bid amount (USD)
+          {{ tip("Solo aplica para Cost Cap o Bid Cap. Es el monto objetivo/tope en dólares.") }}
+        </label>
+        <input spellcheck="false" type="number" step="0.01" name="bid_amount" class="w-full bg-bg border border-border rounded px-3 py-2" value="{{ form.bid_amount if form else '' }}">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1 flex items-center">ROAS floor
+          {{ tip("Solo aplica para 'Objetivo de ROAS'. Ratio mínimo de retorno. Ejemplo: 1.5 = exiges 150% de retorno (por cada $1 gastado, $1.50 vendido).") }}
+        </label>
+        <input spellcheck="false" type="number" step="0.01" name="roas_floor" class="w-full bg-bg border border-border rounded px-3 py-2" placeholder="ej. 1.5" value="{{ form.roas_floor if form else '' }}">
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-panel border border-border rounded-lg p-5 space-y-4">
+    <h3 class="font-semibold flex items-center gap-2">{{ icon('target') }}Targeting</h3>
+    <div class="grid grid-cols-3 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Edad mínima</label>
+        <input spellcheck="false" type="number" name="age_min" class="w-full bg-bg border border-border rounded px-3 py-2" value="{{ form.age_min if form else '40' }}">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Edad máxima</label>
+        <input spellcheck="false" type="number" name="age_max" class="w-full bg-bg border border-border rounded px-3 py-2" value="{{ form.age_max if form else '65' }}">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1 flex items-center">Países
+          {{ tip("Códigos ISO 3166-1 alpha-2 (2 letras), separados por coma. Ejemplos: US (Estados Unidos), CO (Colombia), MX (México), ES (España), AR (Argentina). Meta reconoce este formato exactamente.") }}
+        </label>
+        <input spellcheck="false" name="countries" class="w-full bg-bg border border-border rounded px-3 py-2" value="{{ form.countries if form else 'US' }}" placeholder="US, CO, MX">
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-panel border border-border rounded-lg p-5 space-y-4">
+    <h3 class="font-semibold flex items-center gap-2">{{ icon('settings-2') }}Cuenta, página, pixel, set</h3>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Cuenta publicitaria</label>
+        <select name="ad_account_id" required class="w-full bg-bg border border-border rounded px-3 py-2">
+          {% for a in accounts %}<option value="{{ a.id }}" {% if (form and form.ad_account_id == a.id) or (not form and defaults and defaults.ad_account_id == a.id) %}selected{% endif %}>{{ a.name }} ({{ a.currency }})</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1 flex items-center">Página de Facebook
+          {{ tip("La fan page que aparecerá como anunciante. Si tienes varias páginas (una por nicho), elige la correcta para esta campaña.") }}
+        </label>
+        <select name="page_id" required class="w-full bg-bg border border-border rounded px-3 py-2">
+          {% for p in pages %}<option value="{{ p.id }}" {% if (form and form.page_id == p.id) or (not form and defaults and defaults.page_id == p.id) %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1 flex items-center">Pixel
+          {{ tip("Pixel que trackea conversiones. Debe estar firing en el lander de esta campaña. Si tienes 2 landers con pixeles distintos, elige el que corresponda.") }}
+        </label>
+        <select name="pixel_id" required class="w-full bg-bg border border-border rounded px-3 py-2">
+          {% for p in pixels %}<option value="{{ p.id }}" {% if (form and form.pixel_id == p.id) or (not form and defaults and defaults.pixel_id == p.id) %}selected{% endif %}>{{ p.name }} ({{ p.id }})</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Evento de optimización</label>
+        <select name="custom_event_type" class="w-full bg-bg border border-border rounded px-3 py-2">
+          {% for e in event_types %}<option value="{{ e }}" {% if form and form.custom_event_type == e %}selected{% endif %}>{{ e }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1 flex items-center">Product Set
+        {{ tip("Es el grupo de productos del catálogo que va a usar este anuncio. Debe estar 'sincronizado a Meta' = el set existe tanto en este dashboard COMO en Commerce Manager de Facebook. Si dice 'no sincronizado', edita el set y márcalo para sincronizar antes.") }}
+      </label>
+      <select name="product_set_id" required class="w-full bg-bg border border-border rounded px-3 py-2">
+        {% for s in sets %}<option value="{{ s.id }}" {% if not s.fb_set_id %}disabled{% endif %} {% if form and form.product_set_id|string == s.id|string %}selected{% endif %}>
+          {{ s.name }} {% if not s.fb_set_id %}(no sincronizado, no se puede usar){% endif %}
+        </option>{% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1 flex items-center">Instagram User ID
+        {{ tip("Opcional. Si quieres que tu cuenta de Instagram también muestre el anuncio, pon el ID aquí. Si lo dejas vacío, usa la página de Facebook conectada.") }}
+      </label>
+      <input spellcheck="false" name="instagram_id" class="w-full bg-bg border border-border rounded px-3 py-2" value="{{ form.instagram_id if form else '' }}" placeholder="Opcional">
+    </div>
+  </div>
+
+  <div class="bg-panel border border-border rounded-lg p-5 space-y-4">
+    <h3 class="font-semibold flex items-center gap-2">{{ icon('film') }}Anuncio</h3>
+    <div>
+      <label class="block text-sm font-medium mb-1">Lander URL</label>
+      <input spellcheck="false" name="lander" required class="w-full bg-bg border border-border rounded px-3 py-2" value="{{ form.lander if form else '' }}" placeholder="https://...">
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1 flex items-center">Mensaje (texto principal)
+        {{ tip("El texto que sale arriba del video. Soporta macros: {{product.name}}, {{product.description}}, {{product.price}}. Por default usa la descripción del producto desde el catálogo.") }}
+      </label>
+      <textarea spellcheck="false" name="message" rows="2" class="w-full bg-bg border border-border rounded px-3 py-2">{{ form.message if form else '{{product.description}}' }}</textarea>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1 flex items-center">Título (headline) — opcional
+          {{ tip("Sobrescribe el título del producto. Si lo dejas vacío, se usa {{product.name}} del catálogo (recomendado).") }}
+        </label>
+        <input spellcheck="false" name="headline" class="w-full bg-bg border border-border rounded px-3 py-2" value="{{ form.headline if form else '' }}" placeholder="Vacío = usa product.name del catálogo">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1 flex items-center">Descripción del enlace — opcional
+          {{ tip("Texto pequeño debajo del título. Si lo dejas vacío, no se muestra (más limpio para BizOp).") }}
+        </label>
+        <input spellcheck="false" name="link_description" class="w-full bg-bg border border-border rounded px-3 py-2" value="{{ form.link_description if form else '' }}" placeholder="Vacío = sin descripción">
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Call to Action</label>
+        <select name="cta_type" class="w-full bg-bg border border-border rounded px-3 py-2">
+          {% for c in ctas %}<option value="{{ c }}" {% if form and form.cta_type == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1 flex items-center">Formato
+          {{ tip("Video = usa la columna video[0].url del catálogo. Imagen = solo usa image_link. Si quieres video pero tu producto solo tiene imagen, Facebook usará la imagen automáticamente.") }}
+        </label>
+        <select name="use_video" class="w-full bg-bg border border-border rounded px-3 py-2">
+          <option value="yes">Video (single_video)</option>
+          <option value="no">Imagen</option>
+        </select>
+      </div>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1 flex items-center">URL params / UTMs
+        {{ tip("Parámetros que se agregan al final del link del anuncio. Usa las macros de Meta ({{ad.id}}, {{campaign.id}}, etc.) para trackear qué anuncio/campaña generó la conversión.") }}
+      </label>
+      <textarea spellcheck="false" name="url_tags" rows="2" class="w-full bg-bg border border-border rounded px-3 py-2 font-mono text-xs">{{ form.url_tags if form else 'ad_id={{ad.id}}&adset_id={{adset.id}}&placement={{placement}}&site_source={{site_source_name}}&campaign_name={{campaign.name}}&adset_name={{adset.name}}&ad_name={{ad.name}}&platform={{platform}}&position={{position}}&campaign={{campaign.id}}&c=1' }}</textarea>
+    </div>
+  </div>
+
+  <div class="bg-panel border border-border rounded-lg p-5 space-y-3">
+    <h3 class="font-semibold flex items-center gap-2">{{ icon('venetian-mask') }}Truco automático</h3>
+    <label class="flex items-start gap-3 cursor-pointer">
+      <input spellcheck="false" type="checkbox" name="trick_enabled" value="yes" class="w-4 h-4 mt-1">
+      <div class="flex-1">
+        <div class="font-medium flex items-center">Apagar productos blancos automáticamente cuando el ad esté ACTIVE
+          {{ tip("Si lo marcas, el sistema vigila esta campaña cada hora. Apenas Facebook apruebe el ad (effective_status=ACTIVE), marca los productos con tag 'Limpio' del set como out_of_stock vía API → dejan de servir. Los productos 'Sucios' siguen corriendo y generando plata. Los limpios quedan en la Ad Library como fachada compliance.") }}
+        </div>
+        <p class="text-xs text-muted mt-1">Cron corre cada 1 hora. Detecta approval automático.</p>
+      </div>
+    </label>
+  </div>
+
+  <div class="bg-panel border border-border rounded-lg p-5 space-y-3">
+    <h3 class="font-semibold flex items-center gap-2">{{ icon('shield') }}Otros</h3>
+    <label class="flex items-start gap-3 cursor-pointer">
+      <input spellcheck="false" type="checkbox" name="multi_advertiser_optout" value="yes" checked class="w-4 h-4 mt-1">
+      <div>
+        <div class="font-medium flex items-center">Opt-out de anuncios multianunciante
+          {{ tip("Intenta deshabilitar 'Multi-advertiser ads' vía API. Como Meta no expone este campo confiablemente, puede que tengas que destildarlo manualmente en Ads Manager antes de publicar.") }}
+        </div>
+      </div>
+    </label>
+    <div>
+      <label class="block text-sm font-medium mb-1 flex items-center">Guardar como plantilla
+        {{ tip("Si pones un nombre aquí, se guarda toda la configuración para reutilizarla después en otras campañas.") }}
+      </label>
+      <input spellcheck="false" name="save_as_template" class="w-full bg-bg border border-border rounded px-3 py-2" placeholder="Opcional. ej: BizOp USA 40+ CBO $10">
+    </div>
+  </div>
+
+  <div class="flex gap-3">
+    <button class="bg-ok hover:bg-ok/80 text-white px-6 py-3 rounded font-semibold flex items-center gap-2">{{ icon('rocket') }}Crear campaña (PAUSED)</button>
+    <a href="/campaigns" class="bg-panel border border-border hover:bg-border px-6 py-3 rounded">Cancelar</a>
+  </div>
+</form>
+
+<script>
+document.getElementById('load-tpl')?.addEventListener('click', async () => {
+  const id = document.getElementById('template-loader').value;
+  if (!id) return;
+  const r = await fetch('/templates/' + id + '/json');
+  const data = await r.json();
+  for (const [k, v] of Object.entries(data.config)) {
+    const el = document.querySelector(`[name="${k}"]`);
+    if (el) {
+      if (el.type === 'checkbox') el.checked = (v === 'yes' || v === true);
+      else el.value = v;
+    }
+  }
+});
+</script>
+{% endblock %}

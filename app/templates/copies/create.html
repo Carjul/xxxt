@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, tip %}
+{% block content %}
+<h1 class="text-3xl font-bold mb-6 flex items-center gap-3">{{ icon('plus') }}Nuevo Paquete Multi-Idioma</h1>
+
+<form method="post" action="/copies" class="bg-panel border border-border rounded-lg p-6 space-y-5 max-w-3xl">
+  <div>
+    <label class="block text-sm font-medium mb-1">Nombre del paquete</label>
+    <input spellcheck="false" name="name" required placeholder="BizOp US Pack #1"
+           class="w-full bg-bg border border-border rounded px-3 py-2">
+  </div>
+
+  <h3 class="font-semibold border-b border-border pb-2">Copy REAL (lo que verán los usuarios target)</h3>
+  <div class="grid grid-cols-3 gap-3">
+    <div>
+      <label class="block text-sm mb-1">Real label</label>
+      <input spellcheck="false" name="real_label" value="en_XX" class="w-full bg-bg border border-border rounded px-3 py-2 font-mono text-sm">
+    </div>
+    <div>
+      <label class="block text-sm mb-1">Real locales (coma)</label>
+      <input spellcheck="false" name="real_locales" value="6" placeholder="6 = English US"
+             class="w-full bg-bg border border-border rounded px-3 py-2">
+    </div>
+    <div>
+      <label class="block text-sm mb-1">URL real (lander)</label>
+      <input spellcheck="false" name="real_url" required placeholder="https://..."
+             class="w-full bg-bg border border-border rounded px-3 py-2">
+    </div>
+  </div>
+  <div>
+    <label class="block text-sm mb-1">Body (texto principal)</label>
+    <textarea spellcheck="false" name="real_body" rows="3" required class="w-full bg-bg border border-border rounded px-3 py-2"></textarea>
+  </div>
+  <div class="grid grid-cols-2 gap-3">
+    <div>
+      <label class="block text-sm mb-1">Title (headline)</label>
+      <input spellcheck="false" name="real_title" required class="w-full bg-bg border border-border rounded px-3 py-2">
+    </div>
+    <div>
+      <label class="block text-sm mb-1">Description</label>
+      <input spellcheck="false" name="real_desc" class="w-full bg-bg border border-border rounded px-3 py-2">
+    </div>
+  </div>
+
+  <h3 class="font-semibold border-b border-border pb-2 mt-6 flex items-center gap-2">
+    {{ icon('shield') }}Carnadas multi-idioma (lo que ve el reviewer)
+    {{ tip("Copy en idiomas que distraen al reviewer. Debe ser benigno/lifestyle, no BizOp.") }}
+  </h3>
+
+  {% for code, name in [('fr', 'Francés'), ('ru', 'Ruso'), ('ja', 'Japonés'), ('ar', 'Árabe')] %}
+  <div class="bg-bg border border-border rounded p-3 space-y-2">
+    <strong class="text-sm">{{ name }} ({{ code }})</strong>
+    <input spellcheck="false" name="{{ code }}_body" placeholder="Body en {{ name|lower }}"
+           value="{{ default_copy[code].body }}" class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+    <div class="grid grid-cols-3 gap-2">
+      <input spellcheck="false" name="{{ code }}_title" placeholder="Title"
+             value="{{ default_copy[code].title }}" class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+      <input spellcheck="false" name="{{ code }}_desc" placeholder="Desc"
+             value="{{ default_copy[code].desc }}" class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+      <input spellcheck="false" name="{{ code }}_url" placeholder="URL"
+             value="{{ default_copy[code].url }}" class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+    </div>
+  </div>
+  {% endfor %}
+
+  <button class="bg-accent hover:bg-accent/80 text-white px-5 py-2 rounded font-medium">Guardar paquete</button>
+</form>
+{% endblock %}

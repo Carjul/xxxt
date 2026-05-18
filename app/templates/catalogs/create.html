@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, tip %}
+{% block content %}
+<h1 class="text-3xl font-bold mb-6 flex items-center gap-3 title-cat">{{ icon('package-plus') }}Nuevo Catálogo</h1>
+
+{% if error %}<div class="bg-err/10 border border-err rounded p-3 mb-4 text-sm text-err">{{ error }}</div>{% endif %}
+
+<form method="post" action="/catalogs" class="bg-panel border border-border rounded-lg p-6 space-y-5 max-w-2xl">
+  <div>
+    <label class="block text-sm font-medium mb-1">Nombre del catálogo</label>
+    <input spellcheck="false" name="name" required class="w-full bg-bg border border-border rounded px-3 py-2"
+           value="{{ (form.name if form else '') }}" placeholder="CAT-THM72-2026-05">
+  </div>
+
+  <div>
+    <label class="block text-sm font-medium mb-1 flex items-center">Business Manager ID
+      {{ tip("ID del BM donde se va a crear el catálogo. Mira en Business Settings → Información de la empresa.") }}
+    </label>
+    <input spellcheck="false" name="business_id" required class="w-full bg-bg border border-border rounded px-3 py-2"
+           value="{{ (form.business_id if form else (defaults.business_id if defaults else (settings.default_business_id if settings else ''))) }}" placeholder="631835841698356">
+  </div>
+
+  <div>
+    <label class="block text-sm font-medium mb-1 flex items-center">Pixel ID
+      {{ tip("Opcional. Si lo pones, el catálogo se asocia con este pixel para trackear conversiones de productos.") }}
+    </label>
+    <input spellcheck="false" name="pixel_id" class="w-full bg-bg border border-border rounded px-3 py-2"
+           value="{{ (form.pixel_id if form else (defaults.pixel_id if defaults else (settings.default_pixel_id if settings else ''))) }}">
+  </div>
+
+  <div class="bg-bg border border-border rounded p-4 space-y-2">
+    <label class="flex items-start gap-3 cursor-pointer">
+      <input spellcheck="false" type="checkbox" name="sync_to_meta" value="yes" checked class="w-4 h-4 mt-1">
+      <div>
+        <div class="font-medium">Sincronizar a Meta inmediatamente</div>
+        <p class="text-xs text-muted">Crea el catálogo y feed en Commerce Manager via API.</p>
+      </div>
+    </label>
+  </div>
+
+  <button class="bg-accent hover:bg-accent/80 text-white px-5 py-2 rounded font-medium flex items-center gap-2">{{ icon('save') }}Crear catálogo</button>
+</form>
+{% endblock %}

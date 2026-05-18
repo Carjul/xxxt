@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, tip %}
+{% block content %}
+<div class="mb-2 text-sm text-muted">
+  <a href="/catalogs" class="hover:text-accent">Catálogos</a> /
+  <a href="/catalogs/{{ catalog.id }}/products" class="hover:text-accent">{{ catalog.name }}</a> /
+  <a href="/catalogs/{{ catalog.id }}/sets" class="hover:text-accent">Sets</a> / {{ 'Editar' if pset else 'Nuevo' }}
+</div>
+<div class="flex justify-between items-center mb-6">
+  <h1 class="text-2xl font-bold flex items-center gap-3 title-cat">{{ icon('layers') }}{{ 'Editar Set' if pset else 'Generador de Sets de Variaciones' }}</h1>
+  <a href="/catalogs/{{ catalog.id }}/sets" class="bg-panel border border-border hover:bg-border px-3 py-2 rounded text-sm flex items-center gap-2">{{ icon('arrow-left') }}<span data-i18n="btn.back_to_sets">Volver a sets</span></a>
+</div>
+
+{% if not products %}
+<div class="bg-warn/10 border border-warn rounded p-4">
+  Primero agrega productos al catálogo antes de crear sets.
+</div>
+{% else %}
+<form method="post" action="{% if pset %}/catalogs/{{ catalog.id }}/sets/{{ pset.id }}{% else %}/catalogs/{{ catalog.id }}/sets{% endif %}" class="bg-panel border border-border rounded-lg p-6 space-y-5 max-w-3xl">
+  <div>
+    <label class="block text-sm font-medium mb-3 flex items-center">Selecciona los productos del set
+      {{ tip("Marca los productos que van a entrar en este set. Para el truco: mezcla limpios + sucios. Los limpios se apagarán automáticamente cuando aprueben.") }}
+    </label>
+    <div class="space-y-2 bg-bg border border-border rounded p-4 max-h-96 overflow-y-auto">
+      {% for p in products %}
+      <label class="flex items-center gap-3 p-2 rounded hover:bg-panel cursor-pointer">
+        <input spellcheck="false" type="checkbox" name="product_ids" value="{{ p.id }}" class="w-4 h-4 product-checkbox" data-tag="{{ p.tag }}" data-label="{{ p.video_label }}" {% if selected_ids and p.id in selected_ids %}checked{% endif %}>
+        <div class="flex-1">
+          <div class="flex items-center gap-2">
+            <span class="tag-pill {{ 'tag-clean' if p.tag == 'clean' else 'tag-dirty' }}">{{ 'Limpio' if p.tag == 'clean' else 'Sucio' }}</span>
+            <span class="font-mono text-xs text-muted">{{ p.video_label or p.retailer_id }}</span>
+          </div>
+          <div class="text-sm">{{ p.title }}</div>
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="bg-bg border border-border rounded p-3 text-sm">
+    <strong class="flex items-center gap-2">{{ icon('zap') }}Plantillas rápidas:</strong>
+    <div class="flex flex-wrap gap-2 mt-2">
+      <button type="button" data-preset="clean1+dirty1" class="preset-btn bg-panel border border-border hover:bg-border px-3 py-1 rounded text-xs">1 sucio + 1 limpio</button>
+      <button type="button" data-preset="clean2+dirty1" class="preset-btn bg-panel border border-border hover:bg-border px-3 py-1 rounded text-xs">1 sucio + 2 limpios</button>
+      <button type="button" data-preset="clean4+dirty2" class="preset-btn bg-panel border border-border hover:bg-border px-3 py-1 rounded text-xs">2 sucios + 4 limpios</button>
+      <button type="button" data-preset="all_dirty" class="preset-btn bg-panel border border-border hover:bg-border px-3 py-1 rounded text-xs">Solo sucios</button>
+      <button type="button" data-preset="all_clean" class="preset-btn bg-panel border border-border hover:bg-border px-3 py-1 rounded text-xs">Solo limpios</button>
+      <button type="button" data-preset="all" class="preset-btn bg-panel border border-border hover:bg-border px-3 py-1 rounded text-xs">Todos</button>
+    </div>
+  </div>
+
+  <div>
+    <label class="block text-sm font-medium mb-1 flex items-center">Nombre del set
+      {{ tip("Si lo dejas vacío, se autogenera con los video_labels seleccionados. Ejemplo: 05_L01_V1+V2+V3.") }}
+    </label>
+    <input spellcheck="false" name="name" id="set-name" class="w-full bg-bg border border-border rounded px-3 py-2 font-mono"
+           value="{{ pset.name if pset else '' }}" placeholder="Vacío = autogenerado, ej: 05_L01_V1+V2+V3">
+  </div>
+
+  <div class="bg-bg border border-border rounded p-4">
+    <label class="flex items-start gap-3 cursor-pointer">
+      <input spellcheck="false" type="checkbox" name="sync_to_meta" value="yes" {% if not pset or not pset.fb_set_id %}checked{% endif %} class="w-4 h-4 mt-1">
+      <div>
+        <div class="font-medium">{% if pset and pset.fb_set_id %}Actualizar en Meta{% else %}Sincronizar a Meta{% endif %}</div>
+        <p class="text-xs text-muted">{% if pset and pset.fb_set_id %}El set ya está sincronizado. Si marcas esto, se actualiza el set en Commerce Manager con los cambios.{% else %}Crea el set en Commerce Manager via API. Necesario para poder usarlo en campañas.{% endif %}</p>
+      </div>
+    </label>
+  </div>
+
+  <button class="bg-accent hover:bg-accent/80 text-white px-5 py-2 rounded font-medium flex items-center gap-2">{{ icon('save') }}{{ 'Guardar cambios' if pset else 'Crear set' }}</button>
+</form>
+
+<script>
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const preset = btn.dataset.preset;
+    const checkboxes = document.querySelectorAll('.product-checkbox');
+    const cleans = [...checkboxes].filter(c => c.dataset.tag === 'clean');
+    const dirties = [...checkboxes].filter(c => c.dataset.tag === 'dirty');
+    checkboxes.forEach(c => c.checked = false);
+    const presets = {
+      'clean1+dirty1': () => { cleans.slice(0, 1).forEach(c => c.checked = true); dirties.slice(0, 1).forEach(c => c.checked = true); },
+      'clean2+dirty1': () => { cleans.slice(0, 2).forEach(c => c.checked = true); dirties.slice(0, 1).forEach(c => c.checked = true); },
+      'clean4+dirty2': () => { cleans.slice(0, 4).forEach(c => c.checked = true); dirties.slice(0, 2).forEach(c => c.checked = true); },
+      'all_dirty': () => dirties.forEach(c => c.checked = true),
+      'all_clean': () => cleans.forEach(c => c.checked = true),
+      'all': () => checkboxes.forEach(c => c.checked = true),
+    };
+    presets[preset]?.();
+  });
+});
+</script>
+{% endif %}
+{% endblock %}

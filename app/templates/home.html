@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block content %}
+<div class="mb-8">
+  <h1 class="text-3xl font-bold mb-2 title-home flex items-center gap-3">{{ icon('home') }}Inicio</h1>
+  <p class="text-muted">Panel de control para campañas de catálogo.</p>
+</div>
+
+{% if not token_set %}
+<div class="bg-err/10 border border-err rounded p-4 mb-6 flex items-start gap-3">
+  {{ icon('alert-triangle', 'lucide-icon text-err') }}
+  <div>
+    <strong class="text-err">No hay una conexion Meta activa.</strong>
+    <p class="text-sm mt-1">Ve a <a href="/setup" class="underline">Configuracion</a> y activa una conexion para usar Meta en toda la app.</p>
+  </div>
+</div>
+{% endif %}
+
+{% if active_connection %}
+<div class="bg-panel border border-border rounded p-4 mb-6 text-sm">
+  Trabajando con <strong>{{ active_connection.name }}</strong>{% if active_connection.business_name %} - {{ active_connection.business_name }}{% endif %}
+</div>
+{% endif %}
+
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+  <div class="bg-panel border border-border rounded-lg p-5">
+    <div class="text-muted text-xs uppercase tracking-wide">Catálogos</div>
+    <div class="text-3xl font-bold mt-1">{{ stats.catalogs }}</div>
+  </div>
+  <div class="bg-panel border border-border rounded-lg p-5">
+    <div class="text-muted text-xs uppercase tracking-wide">Productos</div>
+    <div class="text-3xl font-bold mt-1">{{ stats.products }}</div>
+  </div>
+  <div class="bg-panel border border-border rounded-lg p-5">
+    <div class="text-muted text-xs uppercase tracking-wide">Sets</div>
+    <div class="text-3xl font-bold mt-1">{{ stats.sets }}</div>
+  </div>
+  <div class="bg-panel border border-border rounded-lg p-5">
+    <div class="text-muted text-xs uppercase tracking-wide">Campañas</div>
+    <div class="text-3xl font-bold mt-1">{{ stats.campaigns }}</div>
+  </div>
+  <div class="bg-panel border border-border rounded-lg p-5">
+    <div class="text-muted text-xs uppercase tracking-wide">Plantillas</div>
+    <div class="text-3xl font-bold mt-1">{{ stats.templates }}</div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <div class="bg-panel border border-border rounded-lg p-6">
+    <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">{{ icon('venetian-mask') }}Estado del Truco</h2>
+    <div class="text-3xl font-bold {{ 'text-warn' if pending_trick else 'text-ok' }}">{{ pending_trick }}</div>
+    <p class="text-muted text-sm">campañas esperando aprobación para apagar blancos</p>
+    <a href="/trick" class="text-accent text-sm mt-3 inline-flex items-center gap-1">Ver detalle {{ icon('arrow-right') }}</a>
+  </div>
+
+  <div class="bg-panel border border-border rounded-lg p-6">
+    <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">{{ icon('zap') }}Acciones rápidas</h2>
+    <div class="space-y-2">
+      <a href="/catalogs/new" class="block bg-accent hover:bg-accent/80 text-white px-4 py-2 rounded text-sm text-center flex items-center justify-center gap-2">{{ icon('plus') }}Nuevo catálogo</a>
+      <a href="/catalogs" class="block bg-panel border border-border hover:bg-border px-4 py-2 rounded text-sm text-center flex items-center justify-center gap-2">{{ icon('table') }}Editar productos (tipo Google Sheet)</a>
+      <a href="/campaigns/new" class="block bg-ok hover:bg-ok/80 text-white px-4 py-2 rounded text-sm text-center flex items-center justify-center gap-2">{{ icon('rocket') }}Nueva campaña</a>
+    </div>
+    <p class="text-xs text-muted mt-3">Tip: la vista tipo spreadsheet está dentro de cada catálogo → click en "Productos" en la lista.</p>
+  </div>
+</div>
+{% endblock %}

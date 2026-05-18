@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="mb-2 text-sm text-muted">
+  <a href="/catalogs" class="hover:text-accent">Catálogos</a> /
+  <a href="/catalogs/{{ catalog.id }}/products" class="hover:text-accent">{{ catalog.name }}</a> /
+  {{ 'Editar' if product else 'Nuevo producto' }}
+</div>
+<h1 class="text-2xl font-bold mb-6">{{ 'Editar producto' if product else 'Nuevo producto' }}</h1>
+
+<form method="post" action="{% if product %}/catalogs/{{ catalog.id }}/products/{{ product.id }}{% else %}/catalogs/{{ catalog.id }}/products{% endif %}"
+      class="bg-panel border border-border rounded-lg p-6 space-y-5 max-w-3xl">
+
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Retailer ID</label>
+      <input spellcheck="false" name="retailer_id" required value="{{ product.retailer_id if product else '' }}"
+             class="w-full bg-bg border border-border rounded px-3 py-2 font-mono text-sm" placeholder="P00001">
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Video Label (nomenclatura)</label>
+      <input spellcheck="false" name="video_label" value="{{ product.video_label if product else '' }}"
+             class="w-full bg-bg border border-border rounded px-3 py-2 font-mono text-sm" placeholder="05_L01_V1">
+      <p class="text-xs text-muted mt-1">Formato: MES_LOTE_VIDEO (ej: 05_L01_V1)</p>
+    </div>
+  </div>
+
+  <div>
+    <label class="block text-sm font-medium mb-1">Etiqueta</label>
+    <select name="tag" class="w-full bg-bg border border-border rounded px-3 py-2">
+      <option value="dirty" {% if product and product.tag == 'dirty' %}selected{% endif %}>Sucio (agresivo, hace plata)</option>
+      <option value="clean" {% if product and product.tag == 'clean' %}selected{% endif %}>Limpio (compliance, se apaga después)</option>
+    </select>
+  </div>
+
+  <div>
+    <label class="block text-sm font-medium mb-1">Título (sale como Title del anuncio)</label>
+    <input spellcheck="false" name="title" required value="{{ product.title if product else '' }}"
+           class="w-full bg-bg border border-border rounded px-3 py-2" maxlength="200">
+  </div>
+
+  <div>
+    <label class="block text-sm font-medium mb-1">Descripción (sale como Texto principal)</label>
+    <textarea spellcheck="false" name="description" rows="4" class="w-full bg-bg border border-border rounded px-3 py-2">{{ product.description if product else '' }}</textarea>
+  </div>
+
+  <div class="grid grid-cols-3 gap-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Disponibilidad</label>
+      <select name="availability" class="w-full bg-bg border border-border rounded px-3 py-2">
+        <option value="in stock" {% if product and product.availability == 'in stock' %}selected{% endif %}>in stock</option>
+        <option value="out of stock" {% if product and product.availability == 'out of stock' %}selected{% endif %}>out of stock</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Condición</label>
+      <select name="condition" class="w-full bg-bg border border-border rounded px-3 py-2">
+        <option value="new">new</option>
+        <option value="used">used</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Precio</label>
+      <input spellcheck="false" name="price" value="{{ product.price if product else '10.00 USD' }}"
+             class="w-full bg-bg border border-border rounded px-3 py-2">
+    </div>
+  </div>
+
+  <div>
+    <label class="block text-sm font-medium mb-1">Link (lander)</label>
+    <input spellcheck="false" name="link" required value="{{ product.link if product else '' }}"
+           class="w-full bg-bg border border-border rounded px-3 py-2" placeholder="https://...">
+  </div>
+
+  <div>
+    <label class="block text-sm font-medium mb-1">Imagen (URL directa .jpg/.png)</label>
+    <input spellcheck="false" name="image_link" required value="{{ product.image_link if product else '' }}"
+           class="w-full bg-bg border border-border rounded px-3 py-2">
+  </div>
+
+  <div>
+    <label class="block text-sm font-medium mb-1">Video (URL directa .mp4) — opcional</label>
+    <input spellcheck="false" name="video_url" value="{{ product.video_url if product else '' }}"
+           class="w-full bg-bg border border-border rounded px-3 py-2">
+  </div>
+
+  <div>
+    <label class="block text-sm font-medium mb-1">Brand</label>
+    <input spellcheck="false" name="brand" value="{{ product.brand if product else 'Brand' }}"
+           class="w-full bg-bg border border-border rounded px-3 py-2">
+  </div>
+
+  <button class="bg-accent hover:bg-accent/80 px-5 py-2 rounded font-medium">{{ 'Guardar' if product else 'Crear producto' }}</button>
+</form>
+{% endblock %}

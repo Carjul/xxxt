@@ -1,0 +1,10 @@
+{% macro tip(text) %}
+<span class="tt">
+  <i data-lucide="help-circle" class="tt-icon"></i>
+  <span class="tt-body">{{ text }}</span>
+</span>
+{% endmacro %}
+
+{% macro icon(name, cls="lucide-icon") %}
+<i data-lucide="{{ name }}" class="{{ cls }}"></i>
+{% endmacro %}

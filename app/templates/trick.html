@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, tip %}
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <h1 class="text-3xl font-bold flex items-center gap-3 title-trick">{{ icon('venetian-mask') }}Truco Automático
+    {{ tip("El sistema vigila las campañas con el truco habilitado. Cuando Facebook aprueba el ad (effective_status=ACTIVE), apaga los productos 'Limpio' del set marcándolos como out_of_stock vía Marketing API. Cron corre cada 1 hora.") }}
+  </h1>
+  <form method="post" action="/trick/run-now"><button class="bg-accent hover:bg-accent/80 text-white px-4 py-2 rounded text-sm flex items-center gap-2">{{ icon('play') }}Correr ahora</button></form>
+</div>
+
+<p class="text-muted text-sm mb-6">El cron corre cada hora. Cuando un ad pasa a <code>ACTIVE</code>, marca los productos con tag <code>clean</code> del set como <code>out_of_stock</code>.</p>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <div class="bg-panel border border-border rounded-lg p-5">
+    <h2 class="font-semibold mb-3 text-warn flex items-center gap-2">{{ icon('clock') }}Pendientes ({{ pending|length }})</h2>
+    {% if pending %}
+    <ul class="space-y-2 text-sm">
+      {% for c in pending %}
+      <li class="border-b border-border pb-2">
+        <div class="font-medium">{{ c.name }}</div>
+        <div class="text-xs text-muted">ad: {{ c.fb_ad_id }} • status: {{ c.last_status or 'sin chequear' }}</div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="text-muted text-sm">Nada pendiente.</p>{% endif %}
+  </div>
+  <div class="bg-panel border border-border rounded-lg p-5">
+    <h2 class="font-semibold mb-3 text-ok flex items-center gap-2">{{ icon('check-circle') }}Ejecutados ({{ done|length }})</h2>
+    {% if done %}
+    <ul class="space-y-2 text-sm">
+      {% for c in done %}
+      <li class="border-b border-border pb-2">
+        <div class="font-medium">{{ c.name }}</div>
+        <div class="text-xs text-muted">{{ c.trick_executed_at.strftime('%Y-%m-%d %H:%M') if c.trick_executed_at }}</div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="text-muted text-sm">Aún ninguna ejecutada.</p>{% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block content %}
+<h1 class="text-3xl font-bold mb-6 flex items-center gap-3 title-tpl">{{ icon('bookmark') }}Plantillas de Campaña</h1>
+
+{% if not templates %}
+<div class="bg-panel border border-border rounded-lg p-8 text-center text-muted">
+  Sin plantillas. Cuando crees una campaña marca "Guardar como plantilla" para reutilizarla.
+</div>
+{% else %}
+<div class="bg-panel border border-border rounded-lg overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-bg border-b border-border text-xs">
+      <tr>
+        <th class="text-left px-4 py-3">Nombre</th>
+        <th class="text-left px-4 py-3">Creada</th>
+        <th class="text-left px-4 py-3">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in templates %}
+      <tr class="border-t border-border">
+        <td class="px-4 py-3 font-medium">{{ t.name }}</td>
+        <td class="px-4 py-3 text-xs text-muted">{{ t.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td class="px-4 py-3">
+          <a href="/campaigns/new?template={{ t.id }}" class="text-accent text-xs inline-flex items-center gap-1">{{ icon('arrow-right') }}Usar</a>
+          <form method="post" action="/templates/{{ t.id }}/delete" class="inline" onsubmit="return confirm('¿Borrar?')">
+            <button class="text-err text-xs ml-2 inline-flex items-center gap-1">{{ icon('trash-2') }}Borrar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <h1 class="text-3xl font-bold flex items-center gap-3 title-camp">{{ icon('rocket') }}Campañas</h1>
+  <a href="/campaigns/new" class="bg-ok hover:bg-ok/80 text-white px-4 py-2 rounded font-medium flex items-center gap-2">{{ icon('plus') }}Nueva campaña</a>
+</div>
+
+{% if not campaigns %}
+<div class="bg-panel border border-border rounded-lg p-8 text-center text-muted">
+  Sin campañas aún. Crea una nueva para empezar.
+</div>
+{% else %}
+<div class="bg-panel border border-border rounded-lg overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-bg border-b border-border text-xs">
+      <tr>
+        <th class="text-left px-3 py-2">Nombre</th>
+        <th class="text-left px-3 py-2">Cuenta</th>
+        <th class="text-left px-3 py-2">FB IDs</th>
+        <th class="text-left px-3 py-2">Truco</th>
+        <th class="text-left px-3 py-2">Status</th>
+        <th class="text-left px-3 py-2">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in campaigns %}
+      <tr class="border-t border-border">
+        <td class="px-3 py-2 font-medium">{{ c.name }}</td>
+        <td class="px-3 py-2 text-xs">act_{{ c.ad_account_id }}</td>
+        <td class="px-3 py-2 text-xs text-muted">
+          camp: {{ c.fb_campaign_id or '—' }}<br>
+          ad: {{ c.fb_ad_id or '—' }}
+        </td>
+        <td class="px-3 py-2 text-xs">
+          {% if c.trick_enabled %}
+            {% if c.trick_executed %}
+            <span class="text-ok inline-flex items-center gap-1">{{ icon('check-circle') }}Ejecutado</span><br>
+            <span class="text-muted">{{ c.trick_executed_at.strftime('%Y-%m-%d %H:%M') if c.trick_executed_at }}</span>
+            {% else %}
+            <span class="text-warn inline-flex items-center gap-1">{{ icon('clock') }}Esperando approval</span>
+            {% endif %}
+          {% else %}—{% endif %}
+        </td>
+        <td class="px-3 py-2 text-xs">{{ c.last_status or '—' }}</td>
+        <td class="px-3 py-2">
+          <form method="post" action="/campaigns/{{ c.id }}/delete" class="inline" onsubmit="return confirm('¿Borrar registro local? La campaña en Meta queda intacta.')">
+            <button class="text-err text-xs inline-flex items-center gap-1">{{ icon('trash-2') }}Borrar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

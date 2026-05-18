@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, tip %}
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <h1 class="text-3xl font-bold flex items-center gap-3">{{ icon('languages') }}Copy Multi-Idioma
+    {{ tip("Paquetes de copy para el truco de idiomas. Cada paquete tiene el copy REAL (en inglés) + carnadas en fr/ru/ja/ar.") }}
+  </h1>
+  <a href="/copies/new" class="bg-accent hover:bg-accent/80 text-white px-4 py-2 rounded">+ Nuevo paquete</a>
+</div>
+
+{% if items %}
+<div class="bg-panel border border-border rounded-lg overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-bg border-b border-border text-xs">
+      <tr>
+        <th class="text-left px-3 py-2">Nombre</th>
+        <th class="text-left px-3 py-2">Idioma real</th>
+        <th class="text-left px-3 py-2">URL real</th>
+        <th class="text-left px-3 py-2">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in items %}
+      <tr class="border-t border-border">
+        <td class="px-3 py-2 font-medium">{{ c.name }}</td>
+        <td class="px-3 py-2 font-mono text-xs">{{ c.real_label }}</td>
+        <td class="px-3 py-2 text-xs">{{ c.real_url[:40] }}...</td>
+        <td class="px-3 py-2">
+          <form method="post" action="/copies/{{ c.id }}/delete" class="inline" onsubmit="return confirm('Borrar?')">
+            <button class="text-err text-xs">Borrar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="bg-panel border border-border rounded-lg p-8 text-center text-muted">
+  Sin paquetes de copy. Crea uno para usar el truco de idiomas.
+</div>
+{% endif %}
+{% endblock %}
