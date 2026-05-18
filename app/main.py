@@ -11,7 +11,7 @@ from .config import SESSION_SECRET, PUBLIC_BASE_URL
 from .database import Base, MongoSession, SessionLocal, engine, get_db, migrate_db
 from .meta_connections import get_active_connection, get_active_token, upsert_env_connection
 from .models import Catalog, Product, ProductSet, Campaign, CampaignTemplate
-from .routers import setup, catalogs, products, sets, campaigns, templates as tpl_router, trick, feed
+from .routers import setup, catalogs, products, sets, campaigns, templates as tpl_router, trick, feed, language_routes
 from .trick_runner import start_scheduler, stop_scheduler
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s | %(message)s")
@@ -47,6 +47,7 @@ app.include_router(campaigns.router)
 app.include_router(tpl_router.router)
 app.include_router(trick.router)
 app.include_router(feed.router)
+app.include_router(language_routes.router)
 
 
 @app.get("/", response_class=HTMLResponse)

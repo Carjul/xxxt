@@ -203,3 +203,5 @@ def get_db():
 
 def migrate_db():
     _ensure_indexes()
+    from .services.language_models import migrate_extras
+    migrate_extras(engine)
