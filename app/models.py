@@ -215,4 +215,9 @@ class Campaign(Base):
     last_conversions = field(default=0)
     last_spend = field(default=0.0)
     notified_approval = field(default=False)
+    # Campos para Language Trick
+    campaign_type = field(default="catalog")  # 'catalog', 'language', 'normal'
+    media_asset_id = field()                  # referencia a media_assets
+    default_media_id = field()                # referencia a media_assets (carnada)
+    copy_bundle_id = field()                  # referencia a copy_bundles
     created_at = field(default_factory=datetime.utcnow)
