@@ -76,9 +76,10 @@ def upload_media_to_meta(
     if not m or not m.public_url:
         raise HTTPException(400, "Creativo no encontrado o sin URL")
 
-    act = (ad_account_id or m.ad_account_id or "").strip()
+    defaults = get_effective_defaults(db)
+    act = (ad_account_id or m.ad_account_id or defaults["ad_account_id"] or "").strip()
     if not act:
-        raise HTTPException(400, "Indica ad_account_id (ej: act_123456789)")
+        raise HTTPException(400, "Configura una cuenta publicitaria en /setup antes de subir creativos a Meta")
     if not act.startswith("act_"):
         act = f"act_{act}"
 

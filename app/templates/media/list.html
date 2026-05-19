@@ -95,7 +95,7 @@
             <a href="/media/{{ m.id }}/edit" class="text-xs bg-bg border border-border hover:border-accent px-2 py-1 rounded">Editar</a>
             {% if not m.uploaded_to_meta %}
             <button type="button"
-              onclick="event.preventDefault(); const f=document.createElement('form');f.method='post';f.action='/media/{{ m.id }}/upload';f.innerHTML='<input name=ad_account_id value=\'\'>';document.body.appendChild(f);f.submit();"
+              onclick="event.preventDefault(); const f=document.createElement('form');f.method='post';f.action='/media/{{ m.id }}/upload';f.innerHTML='<input name=ad_account_id value=\'{{ default_ad_account or '' }}\'>';document.body.appendChild(f);f.submit();"
               class="text-xs bg-accent/80 hover:bg-accent text-white px-2 py-1 rounded">Subir a Meta</button>
             {% endif %}
             <button type="button" onclick="event.preventDefault(); if(confirm('Borrar?')){const f=document.createElement('form');f.method='post';f.action='/media/{{ m.id }}/delete';document.body.appendChild(f);f.submit();}"
