@@ -202,6 +202,14 @@
 
   <div class="bg-panel border border-border rounded-lg p-5 space-y-4">
     <h3 class="font-semibold flex items-center gap-2">{{ icon('settings-2') }}Cuenta, página, pixel, set</h3>
+    <div class="bg-bg border border-border rounded p-3 text-sm">
+      <span class="text-muted">Business Manager configurado:</span>
+      {% if settings and settings.default_business_id %}
+        <strong class="font-mono">{{ settings.default_business_id }}</strong>
+      {% else %}
+        <strong class="text-err">No configurado</strong>
+      {% endif %}
+    </div>
     <div class="grid grid-cols-2 gap-4">
       <div>
         <label class="block text-sm font-medium mb-1">Cuenta publicitaria</label>

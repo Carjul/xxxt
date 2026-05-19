@@ -1,5 +1,5 @@
 import json
-from fastapi import APIRouter, Depends, Request, Form, HTTPException
+from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import RedirectResponse
 from typing import Any as Session
 
@@ -30,6 +30,62 @@ OPTIMIZATION_GOALS = [
 ]
 
 
+def _get_settings_with_defaults(db: Session) -> AppSettings:
+    settings = db.query(AppSettings).first()
+    if not settings:
+        settings = AppSettings()
+        db.add(settings)
+        db.commit()
+    defaults = get_effective_defaults(db)
+    for key, value in defaults.items():
+        setattr(settings, f"default_{key}", value)
+    return settings
+
+
+def _build_campaign_context(request: Request, db: Session, *, form: dict | None = None, error: str | None = None):
+    settings = _get_settings_with_defaults(db)
+    catalogs = db.query(Catalog).all()
+    sets = db.query(ProductSet).all()
+    templates = db.query(CampaignTemplate).order_by(CampaignTemplate.created_at.desc()).all()
+
+    accounts, pages, pixels = [], [], []
+    try:
+        token = get_active_token(db)
+        if token:
+            accounts = meta_api.list_ad_accounts(token=token)
+            pages = meta_api.list_pages(token=token)
+            pixel_account_id = (form or {}).get("ad_account_id") or settings.default_ad_account_id
+            if pixel_account_id:
+                try:
+                    pixels = meta_api.list_pixels(pixel_account_id, token=token)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    from ..services.meta_locales import META_LOCALES
+    return {
+        "request": request, "settings": settings,
+        "catalogs": catalogs, "sets": sets, "templates": templates,
+        "accounts": accounts, "pages": pages, "pixels": pixels,
+        "bid_strategies": BID_STRATEGIES, "ctas": CTAS,
+        "objectives": OBJECTIVES, "event_types": EVENT_TYPES,
+        "optimization_goals": OPTIMIZATION_GOALS,
+        "locales": META_LOCALES,
+        "form": form,
+        "error": error,
+    }
+
+
+def _campaign_error(request: Request, db: Session, message: str, form: dict | None = None):
+    return request.app.state.templates.TemplateResponse(
+        request,
+        "campaigns/wizard.html",
+        _build_campaign_context(request, db, form=form, error=message),
+        status_code=400,
+    )
+
+
 @router.get("/campaigns")
 def list_campaigns(request: Request, db: Session = Depends(get_db)):
     camps = db.query(Campaign).order_by(Campaign.created_at.desc()).all()
@@ -40,41 +96,11 @@ def list_campaigns(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/campaigns/new")
 def new_campaign(request: Request, db: Session = Depends(get_db)):
-    s = db.query(AppSettings).first()
-    if not s:
-        s = AppSettings()
-        db.add(s)
-        db.commit()
-    defaults = get_effective_defaults(db)
-    for key, value in defaults.items():
-        setattr(s, f"default_{key}", value)
-    catalogs = db.query(Catalog).all()
-    sets = db.query(ProductSet).all()
-    templates = db.query(CampaignTemplate).order_by(CampaignTemplate.created_at.desc()).all()
-
-    accounts, pages, pixels = [], [], []
-    try:
-        token = get_active_token(db)
-        accounts = meta_api.list_ad_accounts(token=token)
-        pages = meta_api.list_pages(token=token)
-        if s and s.default_ad_account_id:
-            try:
-                pixels = meta_api.list_pixels(s.default_ad_account_id, token=token)
-            except Exception:
-                pass
-    except Exception:
-        pass
-
-    from ..services.meta_locales import META_LOCALES
-    return request.app.state.templates.TemplateResponse(request, "campaigns/wizard.html", {
-        "request": request, "settings": s,
-        "catalogs": catalogs, "sets": sets, "templates": templates,
-        "accounts": accounts, "pages": pages, "pixels": pixels,
-        "bid_strategies": BID_STRATEGIES, "ctas": CTAS,
-        "objectives": OBJECTIVES, "event_types": EVENT_TYPES,
-        "optimization_goals": OPTIMIZATION_GOALS,
-        "locales": META_LOCALES,
-    })
+    return request.app.state.templates.TemplateResponse(
+        request,
+        "campaigns/wizard.html",
+        _build_campaign_context(request, db),
+    )
 
 
 @router.post("/campaigns")
@@ -85,11 +111,14 @@ async def create_campaign(request: Request, db: Session = Depends(get_db)):
     name = cfg.get("name", "").strip()
     ad_account_id = cfg.get("ad_account_id", "").replace("act_", "")
     if not name or not ad_account_id:
-        raise HTTPException(400, "name y ad_account_id son obligatorios")
+        return _campaign_error(request, db, "Nombre y cuenta publicitaria son obligatorios", cfg)
 
     objective = cfg.get("objective", "OUTCOME_SALES")
     budget_type = cfg.get("budget_type", "daily")
-    budget_amount = float(cfg.get("budget_amount", "10"))
+    try:
+        budget_amount = float(cfg.get("budget_amount", "10"))
+    except ValueError:
+        return _campaign_error(request, db, "Presupuesto inválido", cfg)
     cbo = cfg.get("cbo_or_abo", "CBO") == "CBO"
     bid_strategy = cfg.get("bid_strategy", "LOWEST_COST_WITHOUT_CAP")
     bid_amount = cfg.get("bid_amount", "")
@@ -98,18 +127,30 @@ async def create_campaign(request: Request, db: Session = Depends(get_db)):
     age_min = int(cfg.get("age_min", "40"))
     age_max = int(cfg.get("age_max", "65"))
     countries = [c.strip() for c in cfg.get("countries", "US").split(",") if c.strip()]
-    page_id = cfg.get("page_id")
-    pixel_id = cfg.get("pixel_id")
+    page_id = (cfg.get("page_id") or "").strip()
+    pixel_id = (cfg.get("pixel_id") or "").strip()
     instagram_id = cfg.get("instagram_id", "") or None
     optimization_goal = cfg.get("optimization_goal", "OFFSITE_CONVERSIONS")
     custom_event_type = cfg.get("custom_event_type", "PURCHASE")
-    set_db_id = int(cfg.get("product_set_id"))
+    if not page_id:
+        return _campaign_error(request, db, "Página de Facebook es obligatoria para crear el anuncio", cfg)
+    try:
+        set_db_id = int(cfg.get("product_set_id"))
+    except (TypeError, ValueError):
+        return _campaign_error(request, db, "Product set es obligatorio", cfg)
     pset = db.query(ProductSet).filter(ProductSet.id == set_db_id).first()
     if not pset or not pset.fb_set_id:
-        raise HTTPException(400, "Product set debe estar sincronizado con Meta antes")
+        return _campaign_error(request, db, "Product set debe estar sincronizado con Meta antes", cfg)
     catalog = db.query(Catalog).filter(Catalog.id == pset.catalog_id).first()
+    settings = _get_settings_with_defaults(db)
+    if not settings.default_business_id:
+        return _campaign_error(request, db, "Configura un Business Manager antes de crear campañas con catálogo", cfg)
+    if catalog and catalog.business_id and catalog.business_id != settings.default_business_id:
+        return _campaign_error(request, db, "El catálogo seleccionado pertenece a otro BM distinto al configurado", cfg)
 
-    lander = cfg.get("lander", "")
+    lander = cfg.get("lander", "").strip()
+    if not lander:
+        return _campaign_error(request, db, "Lander URL es obligatorio", cfg)
     message = cfg.get("message", "{{product.description}}")
     cta_type = cfg.get("cta_type", "LEARN_MORE")
     url_tags = cfg.get("url_tags", "")
@@ -125,9 +166,11 @@ async def create_campaign(request: Request, db: Session = Depends(get_db)):
     start_time = cfg.get("start_time", "").strip()
     end_time = cfg.get("end_time", "").strip()
     if budget_type == "lifetime" and not end_time:
-        raise HTTPException(400, "El presupuesto total/lifetime necesita fecha de fin")
+        return _campaign_error(request, db, "El presupuesto total/lifetime necesita fecha de fin", cfg)
     if bid_strategy == "LOWEST_COST_WITH_MIN_ROAS":
         optimization_goal = "VALUE"
+    if optimization_goal in ("OFFSITE_CONVERSIONS", "VALUE") and not pixel_id:
+        return _campaign_error(request, db, "Pixel es obligatorio para optimizar por conversiones o valor/ROAS", cfg)
     # locale_ids puede venir como múltiples inputs (chips) o coma-separados
     try:
         locale_ids_multi = form.getlist("locale_ids")
@@ -150,7 +193,6 @@ async def create_campaign(request: Request, db: Session = Depends(get_db)):
             "status": "PAUSED",
             "buying_type": "AUCTION",
             "special_ad_categories": json.dumps([]),
-            "is_adset_budget_sharing_enabled": cbo,
         }
         if cbo:
             # En CBO: budget + bid_strategy van en campaña
@@ -270,18 +312,7 @@ async def create_campaign(request: Request, db: Session = Depends(get_db)):
         log_lines.append(f"ad {ad_res['id']}")
 
     except Exception as e:
-        return request.app.state.templates.TemplateResponse(request, "campaigns/wizard.html", {
-            "request": request, "error": str(e),
-            "settings": db.query(AppSettings).first(),
-            "catalogs": db.query(Catalog).all(),
-            "sets": db.query(ProductSet).all(),
-            "templates": db.query(CampaignTemplate).all(),
-            "accounts": [], "pages": [], "pixels": [],
-            "bid_strategies": BID_STRATEGIES, "ctas": CTAS,
-            "objectives": OBJECTIVES, "event_types": EVENT_TYPES,
-            "optimization_goals": OPTIMIZATION_GOALS,
-            "form": cfg,
-        }, status_code=400)
+        return _campaign_error(request, db, str(e), cfg)
 
     db_camp = Campaign(
         fb_campaign_id=out.get("campaign_id"),
