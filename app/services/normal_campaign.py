@@ -74,7 +74,7 @@ def create_normal_multi_ad(
         "status": "PAUSED",
         "buying_type": "AUCTION",
         "special_ad_categories": json.dumps([]),
-        "is_adset_budget_sharing_enabled": is_cbo,
+        "is_adset_budget_sharing_enabled": False,
         "access_token": token,
     }
     if is_cbo:

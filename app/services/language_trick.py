@@ -310,7 +310,7 @@ def create_language_trick_multi_ad(
         "status": "PAUSED",
         "buying_type": "AUCTION",
         "special_ad_categories": json.dumps([]),
-        "is_adset_budget_sharing_enabled": is_cbo,
+        "is_adset_budget_sharing_enabled": False,
         "access_token": token,
     }
     if is_cbo:
@@ -447,7 +447,7 @@ def create_language_trick_campaign(
         "status": "PAUSED",
         "buying_type": "AUCTION",
         "special_ad_categories": json.dumps([]),
-        "is_adset_budget_sharing_enabled": is_cbo,
+        "is_adset_budget_sharing_enabled": False,
         "access_token": token,
     }
     r = requests.post(f"{GRAPH}/{act_id}/campaigns", data=camp_payload, timeout=60).json()
