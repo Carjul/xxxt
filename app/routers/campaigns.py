@@ -86,6 +86,20 @@ def _campaign_error(request: Request, db: Session, message: str, form: dict | No
     )
 
 
+def _get_page_instagram_id(page_id: str, db: Session) -> str | None:
+    token = get_active_token(db)
+    if not token:
+        return None
+    try:
+        for page in meta_api.list_pages(token=token):
+            if page.get("id") == page_id:
+                ig = page.get("instagram_business_account") or {}
+                return ig.get("id")
+    except Exception:
+        pass
+    return None
+
+
 @router.get("/campaigns")
 def list_campaigns(request: Request, db: Session = Depends(get_db)):
     camps = db.query(Campaign).order_by(Campaign.created_at.desc()).all()
@@ -129,11 +143,13 @@ async def create_campaign(request: Request, db: Session = Depends(get_db)):
     countries = [c.strip() for c in cfg.get("countries", "US").split(",") if c.strip()]
     page_id = (cfg.get("page_id") or "").strip()
     pixel_id = (cfg.get("pixel_id") or "").strip()
-    instagram_id = cfg.get("instagram_id", "") or None
+    instagram_id = (cfg.get("instagram_id", "") or "").strip() or None
     optimization_goal = cfg.get("optimization_goal", "OFFSITE_CONVERSIONS")
     custom_event_type = cfg.get("custom_event_type", "PURCHASE")
     if not page_id:
         return _campaign_error(request, db, "Página de Facebook es obligatoria para crear el anuncio", cfg)
+    if not instagram_id:
+        instagram_id = _get_page_instagram_id(page_id, db)
     try:
         set_db_id = int(cfg.get("product_set_id"))
     except (TypeError, ValueError):
@@ -216,17 +232,18 @@ async def create_campaign(request: Request, db: Session = Depends(get_db)):
             "age_min": age_min, "age_max": age_max,
             "geo_locations": {"countries": countries},
             **({"locales": locale_ids} if locale_ids else {}),
-            "publisher_platforms": ["facebook", "instagram", "audience_network", "messenger"],
+            "publisher_platforms": ["facebook", "audience_network", "messenger"] + (["instagram"] if instagram_id else []),
             "facebook_positions": ["feed", "biz_disco_feed", "facebook_reels",
                                    "facebook_reels_overlay", "profile_feed", "right_hand_column",
                                    "notification", "instream_video", "marketplace", "story", "search"],
-            "instagram_positions": ["stream", "ig_search", "story", "explore", "reels",
-                                    "explore_home", "profile_feed"],
             "device_platforms": ["mobile", "desktop"],
             "messenger_positions": ["story"],
             "audience_network_positions": ["classic", "rewarded_video"],
             "targeting_automation": {"advantage_audience": 0},
         }
+        if instagram_id:
+            targeting["instagram_positions"] = ["stream", "ig_search", "story", "explore", "reels",
+                                                "explore_home", "profile_feed"]
 
         promoted_object = {"product_set_id": pset.fb_set_id}
         if optimization_goal in ("OFFSITE_CONVERSIONS", "VALUE"):
