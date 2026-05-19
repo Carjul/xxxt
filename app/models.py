@@ -1,223 +1,103 @@
-from __future__ import annotations
-
-from copy import deepcopy
-from datetime import datetime
+from .mongo_odm import Field, MongoModel, utcnow
 
 
-class Comparison:
-    def __init__(self, field_name: str, operator: str, value):
-        self.field_name = field_name
-        self.operator = operator
-        self.value = value
-
-    def matches(self, obj) -> bool:
-        current = getattr(obj, self.field_name, None)
-        if self.operator == "eq":
-            return current == self.value
-        if self.operator == "in":
-            return current in self.value
-        if self.operator == "isnot":
-            return current is not self.value
-        raise ValueError(f"Unsupported operator: {self.operator}")
-
-
-class SortSpec:
-    def __init__(self, field_name: str, descending: bool = False):
-        self.field_name = field_name
-        self.descending = descending
+class AppSettings(MongoModel):
+    __tablename__ = "app_settings"
+    default_business_id = Field()
+    default_ad_account_id = Field()
+    default_page_id = Field()
+    default_pixel_id = Field()
+    fb_access_token = Field()
+    fb_token_last4 = Field()
+    telegram_bot_token = Field()
+    telegram_chat_id = Field()
+    slack_webhook_url = Field()
+    notify_on_approval = Field(True)
+    notify_on_conversion = Field(True)
+    updated_at = Field(utcnow)
 
 
-class QueryField:
-    def __init__(self, default=None, default_factory=None):
-        self.default = default
-        self.default_factory = default_factory
-        self.name = ""
-
-    def __set_name__(self, owner, name):
-        self.name = name
-
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-        return instance.__dict__.get(self.name)
-
-    def __set__(self, instance, value):
-        instance.__dict__[self.name] = value
-
-    def get_default(self):
-        if self.default_factory is not None:
-            return self.default_factory()
-        return deepcopy(self.default)
-
-    def __eq__(self, other):  # type: ignore[override]
-        return Comparison(self.name, "eq", other)
-
-    def in_(self, values):
-        return Comparison(self.name, "in", list(values))
-
-    def isnot(self, value):
-        return Comparison(self.name, "isnot", value)
-
-    def desc(self):
-        return SortSpec(self.name, descending=True)
-
-    def asc(self):
-        return SortSpec(self.name, descending=False)
+class MetaConnection(MongoModel):
+    __tablename__ = "meta_connections"
+    name = Field("")
+    token = Field("")
+    token_last4 = Field("")
+    business_id = Field()
+    business_name = Field()
+    default_ad_account_id = Field()
+    default_page_id = Field()
+    default_pixel_id = Field()
+    is_active = Field(False)
+    is_valid = Field(False)
+    last_error = Field()
+    last_tested_at = Field()
+    created_at = Field(utcnow)
 
 
-def field(default=None, default_factory=None):
-    return QueryField(default=default, default_factory=default_factory)
+class Catalog(MongoModel):
+    __tablename__ = "catalogs"
+    fb_catalog_id = Field()
+    name = Field()
+    business_id = Field()
+    feed_slug = Field()
+    fb_feed_id = Field()
+    created_at = Field(utcnow)
 
 
-class _Metadata:
-    def create_all(self, bind=None):
-        return None
+class Product(MongoModel):
+    __tablename__ = "products"
+    catalog_id = Field()
+    retailer_id = Field()
+    title = Field()
+    description = Field("")
+    availability = Field("in stock")
+    condition = Field("new")
+    price = Field("10.00 USD")
+    link = Field()
+    image_link = Field()
+    brand = Field("Brand")
+    video_url = Field()
+    video_label = Field()
+    tag = Field("dirty")
+    created_at = Field(utcnow)
 
 
-class BaseDocument:
-    metadata = _Metadata()
-    __collection__ = ""
-    __fields__: dict[str, QueryField] = {}
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        fields = {}
-        for base in reversed(cls.__mro__[1:]):
-            fields.update(getattr(base, "__fields__", {}))
-        for name, value in cls.__dict__.items():
-            if isinstance(value, QueryField):
-                fields[name] = value
-        cls.__fields__ = fields
-
-    def __init__(self, **kwargs):
-        for name, descriptor in self.__fields__.items():
-            if name in kwargs:
-                setattr(self, name, kwargs[name])
-            else:
-                setattr(self, name, descriptor.get_default())
-
-    def to_mongo(self):
-        return {name: getattr(self, name) for name in self.__fields__}
-
-    @classmethod
-    def from_mongo(cls, data: dict):
-        return cls(**{name: deepcopy(data.get(name)) for name in cls.__fields__})
+class ProductSet(MongoModel):
+    __tablename__ = "product_sets"
+    catalog_id = Field()
+    fb_set_id = Field()
+    name = Field()
+    retailer_ids = Field([])
+    created_at = Field(utcnow)
 
 
-Base = BaseDocument
+class CampaignTemplate(MongoModel):
+    __tablename__ = "campaign_templates"
+    name = Field()
+    config = Field({})
+    created_at = Field(utcnow)
 
 
-class AppSettings(Base):
-    __collection__ = "app_settings"
-
-    id = field()
-    default_business_id = field()
-    default_ad_account_id = field()
-    default_page_id = field()
-    default_pixel_id = field()
-    fb_token_last4 = field()
-    telegram_bot_token = field()
-    telegram_chat_id = field()
-    slack_webhook_url = field()
-    notify_on_approval = field(default=True)
-    notify_on_conversion = field(default=True)
-    updated_at = field(default_factory=datetime.utcnow)
-
-
-class MetaConnection(Base):
-    __collection__ = "meta_connections"
-
-    id = field()
-    name = field(default="")
-    token = field(default="")
-    token_last4 = field(default="")
-    business_id = field()
-    business_name = field()
-    default_ad_account_id = field()
-    default_page_id = field()
-    default_pixel_id = field()
-    is_active = field(default=False)
-    is_valid = field(default=False)
-    last_error = field()
-    last_tested_at = field()
-    created_at = field(default_factory=datetime.utcnow)
-
-
-class Catalog(Base):
-    __collection__ = "catalogs"
-
-    id = field()
-    fb_catalog_id = field(default="")
-    name = field(default="")
-    business_id = field()
-    feed_slug = field(default="")
-    fb_feed_id = field()
-    created_at = field(default_factory=datetime.utcnow)
-
-
-class Product(Base):
-    __collection__ = "products"
-
-    id = field()
-    catalog_id = field()
-    retailer_id = field(default="")
-    title = field(default="")
-    description = field(default="")
-    availability = field(default="in stock")
-    condition = field(default="new")
-    price = field(default="10.00 USD")
-    link = field(default="")
-    image_link = field(default="")
-    brand = field(default="Brand")
-    video_url = field()
-    video_label = field()
-    tag = field(default="dirty")
-    created_at = field(default_factory=datetime.utcnow)
-
-
-class ProductSet(Base):
-    __collection__ = "product_sets"
-
-    id = field()
-    catalog_id = field()
-    fb_set_id = field()
-    name = field(default="")
-    retailer_ids = field(default_factory=list)
-    created_at = field(default_factory=datetime.utcnow)
-
-
-class CampaignTemplate(Base):
-    __collection__ = "campaign_templates"
-
-    id = field()
-    name = field(default="")
-    config = field(default_factory=dict)
-    created_at = field(default_factory=datetime.utcnow)
-
-
-class Campaign(Base):
-    __collection__ = "campaigns"
-
-    id = field()
-    fb_campaign_id = field()
-    fb_adset_id = field()
-    fb_creative_id = field()
-    fb_ad_id = field()
-    name = field(default="")
-    ad_account_id = field(default="")
-    catalog_id = field()
-    product_set_id = field()
-    config = field(default_factory=dict)
-    trick_enabled = field(default=False)
-    trick_executed = field(default=False)
-    trick_executed_at = field()
-    last_status = field()
-    last_conversions = field(default=0)
-    last_spend = field(default=0.0)
-    notified_approval = field(default=False)
-    # Campos para Language Trick
-    campaign_type = field(default="catalog")  # 'catalog', 'language', 'normal'
-    media_asset_id = field()                  # referencia a media_assets
-    default_media_id = field()                # referencia a media_assets (carnada)
-    copy_bundle_id = field()                  # referencia a copy_bundles
-    created_at = field(default_factory=datetime.utcnow)
+class Campaign(MongoModel):
+    __tablename__ = "campaigns"
+    fb_campaign_id = Field()
+    fb_adset_id = Field()
+    fb_creative_id = Field()
+    fb_ad_id = Field()
+    name = Field()
+    ad_account_id = Field()
+    catalog_id = Field()
+    product_set_id = Field()
+    config = Field({})
+    trick_enabled = Field(False)
+    trick_executed = Field(False)
+    trick_executed_at = Field()
+    last_status = Field()
+    last_conversions = Field(0)
+    last_spend = Field(0.0)
+    notified_approval = Field(False)
+    campaign_type = Field("catalog")
+    media_asset_id = Field()
+    default_media_id = Field()
+    copy_bundle_id = Field()
+    created_at = Field(utcnow)

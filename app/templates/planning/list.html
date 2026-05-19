@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, tip %}
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <h1 class="text-3xl font-bold flex items-center gap-3">{{ icon('clipboard-list') }}Planificación de Campañas
+    {{ tip("Cola de campañas a montar. Cada fila se ejecuta en Meta cuando le des 'Ejecutar' (todo en PAUSED).") }}
+  </h1>
+  <div class="flex gap-2">
+    <form method="post" action="/planning/execute-pending" class="inline" onsubmit="return confirm('¿Ejecutar TODAS las pendientes?')">
+      <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-medium text-sm">▶ Ejecutar pendientes</button>
+    </form>
+    <a href="/planning/new" class="bg-accent hover:bg-accent/80 text-white px-4 py-2 rounded font-medium flex items-center gap-2 text-sm">{{ icon('plus') }}Nueva fila</a>
+  </div>
+</div>
+
+{% if not items %}
+<div class="bg-panel border border-border rounded-lg p-8 text-center text-muted">
+  Sin campañas planificadas. <a href="/planning/new" class="text-accent hover:underline">Agrega la primera →</a>
+</div>
+{% else %}
+<form method="post" action="/planning/bulk-delete" onsubmit="return confirm('¿Borrar las filas seleccionadas?')">
+<div class="flex justify-between items-center mb-3">
+  <button type="submit" class="text-sm bg-err/80 hover:bg-err text-white px-3 py-1.5 rounded opacity-50" id="bulk-del-btn" disabled>
+    Borrar seleccionadas
+  </button>
+  <span class="text-xs text-muted"><span id="sel-count">0</span> seleccionadas · {{ items|length }} total</span>
+</div>
+<div class="bg-panel border border-border rounded-lg overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-bg border-b border-border text-xs">
+      <tr>
+        <th class="px-2 py-2"><input type="checkbox" id="sel-all" class="w-4 h-4"></th>
+        <th class="text-left px-2 py-2">Estado</th>
+        <th class="text-left px-2 py-2">Tipo</th>
+        <th class="text-left px-2 py-2">Nombre</th>
+        <th class="text-left px-2 py-2">Cuenta</th>
+        <th class="text-left px-2 py-2">CBO/ABO</th>
+        <th class="text-left px-2 py-2">Budget</th>
+        <th class="text-left px-2 py-2">Estrategia</th>
+        <th class="text-left px-2 py-2">Países</th>
+        <th class="text-left px-2 py-2">Edad</th>
+        <th class="text-left px-2 py-2">Idioma</th>
+        <th class="text-left px-2 py-2">Ads</th>
+        <th class="text-left px-2 py-2">Resultado</th>
+        <th class="text-left px-2 py-2">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in items %}
+      <tr class="border-t border-border hover:bg-bg/50">
+        <td class="px-2 py-2"><input type="checkbox" name="selected_ids" value="{{ p.id }}" class="row-check w-4 h-4"></td>
+        <td class="px-2 py-2">
+          {% if p.status == 'pending' %}<span class="inline-block text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300">pending</span>
+          {% elif p.status == 'executing' %}<span class="inline-block text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-300">executing</span>
+          {% elif p.status == 'done' %}<span class="inline-block text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-300">✓ done</span>
+          {% else %}<span class="inline-block text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-300" title="{{ p.error_msg }}">✗ error</span>
+          {% endif %}
+        </td>
+        <td class="px-2 py-2">
+          <span class="inline-block text-xs px-2 py-0.5 rounded
+            {% if p.type == 'catalog' %}bg-orange-500/20 text-orange-300
+            {% elif p.type == 'language' %}bg-teal-500/20 text-teal-300
+            {% else %}bg-blue-500/20 text-blue-300{% endif %}">{{ p.type }}</span>
+        </td>
+        <td class="px-2 py-2 font-medium">{{ p.name }}</td>
+        <td class="px-2 py-2 text-xs font-mono">{{ p.ad_account_id[:18] }}{% if p.ad_account_id|length > 18 %}…{% endif %}</td>
+        <td class="px-2 py-2 text-xs">{{ p.cbo_or_abo }}</td>
+        <td class="px-2 py-2 text-xs">${{ '%.2f'|format(p.daily_budget_usd) }}</td>
+        <td class="px-2 py-2 text-xs">{{ p.bid_strategy.replace('LOWEST_COST_','').replace('_',' ')[:18] }}</td>
+        <td class="px-2 py-2 text-xs font-mono">{{ p.countries }}</td>
+        <td class="px-2 py-2 text-xs">{{ p.age_min }}-{{ p.age_max }}</td>
+        <td class="px-2 py-2 text-xs">{{ p.locale_id }}</td>
+        <td class="px-2 py-2 text-xs">{% if p.config and p.config.ads %}{{ p.config.ads|length }}{% else %}—{% endif %}</td>
+        <td class="px-2 py-2 text-xs">
+          {% if p.result_ids and p.result_ids.campaign_id %}
+            <span title="Campaign {{ p.result_ids.campaign_id }}">✓ {{ p.result_ids.campaign_id[:12] }}…</span>
+          {% elif p.error_msg %}
+            <span class="text-err" title="{{ p.error_msg }}">err</span>
+          {% else %}—{% endif %}
+        </td>
+        <td class="px-2 py-2">
+          <div class="flex gap-1">
+            {% if p.status != 'done' %}
+            <button type="button" class="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded"
+              onclick="event.preventDefault();if(confirm('¿Ejecutar esta fila ahora?')){const f=document.createElement('form');f.method='post';f.action='/planning/{{ p.id }}/execute';document.body.appendChild(f);f.submit();}">▶</button>
+            {% endif %}
+            <a href="/planning/{{ p.id }}/edit" class="text-xs bg-bg border border-border hover:border-accent px-2 py-1 rounded">✎</a>
+            <button type="button" class="text-xs bg-bg border border-border hover:border-accent px-2 py-1 rounded"
+              title="Duplicar"
+              onclick="event.preventDefault();const f=document.createElement('form');f.method='post';f.action='/planning/{{ p.id }}/duplicate';document.body.appendChild(f);f.submit();">⎘</button>
+            <button type="button" class="text-err text-xs px-2 py-1"
+              onclick="event.preventDefault();if(confirm('Borrar?')){const f=document.createElement('form');f.method='post';f.action='/planning/{{ p.id }}/delete';document.body.appendChild(f);f.submit();}">✕</button>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+</form>
+
+<script>
+(function(){
+  const all = document.getElementById('sel-all');
+  const rows = document.querySelectorAll('.row-check');
+  const btn = document.getElementById('bulk-del-btn');
+  const cnt = document.getElementById('sel-count');
+  function update() {
+    const n = [...rows].filter(c=>c.checked).length;
+    cnt.textContent = n;
+    btn.disabled = n === 0;
+    btn.classList.toggle('opacity-50', n === 0);
+  }
+  all && all.addEventListener('change', () => { rows.forEach(c => c.checked = all.checked); update(); });
+  rows.forEach(c => c.addEventListener('change', update));
+  update();
+})();
+</script>
+{% endif %}
+{% endblock %}

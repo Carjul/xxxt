@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, tip %}
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <h1 class="text-3xl font-bold flex items-center gap-3">{{ icon('shield') }}Carnadas por idioma
+    {{ tip("Biblioteca GLOBAL de copies benignos por idioma. Lo que verá el reviewer de Meta. Crea cada idioma una sola vez y se reusan en todos los paquetes.") }}
+  </h1>
+</div>
+
+<div class="bg-panel border border-border rounded-lg p-6 mb-6">
+  <h2 class="font-semibold mb-3 flex items-center gap-2">{{ icon('plus') }}Agregar carnada (nuevo idioma)</h2>
+  <form method="post" action="/carnadas" class="space-y-3">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs mb-1 text-muted">Idioma</label>
+        <select name="locale_id" required class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+          <option value="">— Selecciona idioma —</option>
+          {% for lid, code, label in locales %}
+            <option value="{{ lid }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs mb-1 text-muted">URL benigna (lander limpio)</label>
+        <input spellcheck="false" name="url" required placeholder="https://example.com/fr"
+               class="w-full bg-bg border border-border rounded px-3 py-2 text-sm font-mono">
+      </div>
+    </div>
+    <div>
+      <label class="block text-xs mb-1 text-muted">Body (texto principal en ese idioma)</label>
+      <textarea spellcheck="false" name="body" rows="2" required placeholder="Découvrez nos produits..."
+                class="w-full bg-bg border border-border rounded px-3 py-2 text-sm"></textarea>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs mb-1 text-muted">Title (titular)</label>
+        <input spellcheck="false" name="title" required placeholder="Voir plus"
+               class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs mb-1 text-muted">Description (opcional)</label>
+        <input spellcheck="false" name="description" placeholder="Apprenez plus"
+               class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+      </div>
+    </div>
+    <button class="bg-accent hover:bg-accent/80 text-white px-4 py-2 rounded text-sm font-medium">Guardar carnada</button>
+  </form>
+</div>
+
+{% if items %}
+<form method="post" action="/carnadas/bulk-delete" onsubmit="return confirm('¿Borrar los seleccionados?')">
+<div class="flex justify-between items-center mb-3">
+  <button type="submit" class="text-sm bg-err/80 hover:bg-err text-white px-3 py-1.5 rounded" id="bulk-del-btn" disabled>
+    Borrar seleccionados
+  </button>
+  <span class="text-xs text-muted"><span id="sel-count">0</span> seleccionados</span>
+</div>
+<div class="bg-panel border border-border rounded-lg overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-bg border-b border-border text-xs">
+      <tr>
+        <th class="px-3 py-2"><input type="checkbox" id="sel-all" class="w-4 h-4"></th>
+        <th class="text-left px-3 py-2">Idioma</th>
+        <th class="text-left px-3 py-2">Title</th>
+        <th class="text-left px-3 py-2">Body</th>
+        <th class="text-left px-3 py-2">URL</th>
+        <th class="text-left px-3 py-2">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in items %}
+      <tr class="border-t border-border">
+        <td class="px-3 py-2"><input type="checkbox" name="selected_ids" value="{{ c.id }}" class="row-check w-4 h-4"></td>
+        <td class="px-3 py-2 font-medium">{{ c.language_name }}</td>
+        <td class="px-3 py-2">{{ c.title }}</td>
+        <td class="px-3 py-2 text-xs text-muted">{{ c.body[:60] }}{% if c.body|length > 60 %}…{% endif %}</td>
+        <td class="px-3 py-2 text-xs"><a href="{{ c.url }}" target="_blank" class="text-accent hover:underline font-mono">{{ c.url[:35] }}…</a></td>
+        <td class="px-3 py-2">
+          <div class="flex gap-2">
+            <a href="/carnadas/{{ c.id }}/edit" class="text-xs bg-bg border border-border hover:border-accent px-2 py-1 rounded">Editar</a>
+            <button type="button" onclick="event.preventDefault(); if(confirm('Borrar?')){const f=document.createElement('form');f.method='post';f.action='/carnadas/{{ c.id }}/delete';document.body.appendChild(f);f.submit();}"
+              class="text-err text-xs">Borrar</button>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+</form>
+
+<script>
+(function(){
+  const all = document.getElementById('sel-all');
+  const rows = document.querySelectorAll('.row-check');
+  const btn = document.getElementById('bulk-del-btn');
+  const cnt = document.getElementById('sel-count');
+  function update() {
+    const n = [...rows].filter(c=>c.checked).length;
+    cnt.textContent = n;
+    btn.disabled = n === 0;
+    btn.classList.toggle('opacity-50', n === 0);
+  }
+  all && all.addEventListener('change', () => { rows.forEach(c => c.checked = all.checked); update(); });
+  rows.forEach(c => c.addEventListener('change', update));
+  update();
+})();
+</script>
+{% else %}
+<div class="bg-panel border border-border rounded-lg p-8 text-center text-muted">
+  Aún no tienes carnadas. Agrega tu primer idioma arriba (ej: Francés, Ruso, Japonés).
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, tip %}
+{% block content %}
+<h1 class="text-3xl font-bold mb-2 flex items-center gap-3">{{ icon('languages') }}Nueva campaña con truco de idiomas</h1>
+<p class="text-sm text-muted mb-6">Estructura: <strong>1 campaña → 1 ad set → N anuncios</strong>. Todos los anuncios comparten el mismo idioma target del adset.</p>
+
+<form method="post" action="/campaigns/new-language" class="space-y-6 max-w-5xl">
+
+  <!-- ===================== CAMPAÑA ===================== -->
+  <div class="bg-panel border border-border rounded-lg p-6 space-y-4">
+    <h2 class="font-semibold text-accent flex items-center gap-2">{{ icon('rocket') }}Campaña</h2>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm mb-1">Nombre de la campaña</label>
+        <input spellcheck="false" name="name" required placeholder="BizOp US Lang Trick #1"
+               class="w-full bg-bg border border-border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Objetivo
+          {{ tip("OUTCOME_SALES = compras/conversiones (el más común para BizOp). OUTCOME_LEADS = generación de leads. OUTCOME_TRAFFIC = clicks al lander.") }}
+        </label>
+        <select name="objective" class="w-full bg-bg border border-border rounded px-3 py-2">
+          {% for code, label in objectives %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-3">
+      <div>
+        <label class="block text-sm mb-1">Cuenta publicitaria
+          {{ tip("Se carga desde el token del BM. Cambia el token en /setup para ver otras BMs.") }}
+        </label>
+        <select name="ad_account_id" required class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+          {% for a in accounts %}<option value="{{ a.id }}" {% if settings and settings.default_ad_account_id == a.id %}selected{% endif %}>{{ a.name }} ({{ a.currency }})</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Página de Facebook</label>
+        <select name="page_id" required class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+          {% for p in pages %}<option value="{{ p.id }}" {% if settings and settings.default_page_id == p.id %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Pixel
+          {{ tip("El pixel para trackear conversiones. Si no aparecen, abre /setup, selecciona la cuenta y vuelve aquí.") }}
+        </label>
+        <select name="pixel_id" required class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+          {% for p in pixels %}<option value="{{ p.id }}" {% if settings and settings.default_pixel_id == p.id %}selected{% endif %}>{{ p.name }} ({{ p.id }})</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-3">
+      <div>
+        <label class="block text-sm mb-1">CBO o ABO</label>
+        <select name="cbo_or_abo" class="w-full bg-bg border border-border rounded px-3 py-2">
+          <option value="ABO" selected>ABO (presupuesto en adset)</option>
+          <option value="CBO">CBO (presupuesto en campaña)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Presupuesto diario (USD)</label>
+        <input spellcheck="false" name="daily_budget_usd" type="number" step="0.50" value="1.50" required
+               class="w-full bg-bg border border-border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Instagram User ID (opcional)</label>
+        <input spellcheck="false" name="instagram_id" placeholder="Vacío = usa page-backed IG"
+               class="w-full bg-bg border border-border rounded px-3 py-2 font-mono text-sm">
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== BID STRATEGY ===================== -->
+  <div class="bg-panel border border-border rounded-lg p-6 space-y-4">
+    <h2 class="font-semibold text-accent flex items-center gap-2">{{ icon('trending-up') }}Estrategia de puja</h2>
+    <div>
+      <label class="block text-sm mb-1">Tipo
+        {{ tip("Volumen más alto = sin tope, Meta busca máximo volumen. Cost Cap = pones un CPA objetivo. ROAS = pones un ROAS mínimo. Bid Cap = tope duro al precio de puja.") }}
+      </label>
+      <select name="bid_strategy" id="bid-strategy" class="w-full bg-bg border border-border rounded px-3 py-2">
+        {% for code, label in bid_strategies %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm mb-1">Bid amount (USD)
+          {{ tip("Solo se usa para Cost Cap o Bid Cap. Monto objetivo/tope por resultado.") }}
+        </label>
+        <input spellcheck="false" type="number" step="0.01" name="bid_amount" placeholder="ej. 5.00"
+               class="w-full bg-bg border border-border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm mb-1">ROAS floor
+          {{ tip("Solo se usa para Objetivo de ROAS. Ratio mínimo. Ej: 1.5 = 150% de retorno.") }}
+        </label>
+        <input spellcheck="false" type="number" step="0.01" name="roas_floor" placeholder="ej. 1.5"
+               class="w-full bg-bg border border-border rounded px-3 py-2">
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== AD SET ===================== -->
+  <div class="bg-panel border border-border rounded-lg p-6 space-y-4">
+    <h2 class="font-semibold text-accent flex items-center gap-2">{{ icon('target') }}Ad Set (targeting + idioma)</h2>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm mb-1">Idioma del usuario target
+          {{ tip("Este es el idioma que se le mostrará al usuario REAL (el creativo sucio). Ej: pautas a Colombia → eliges Español. Pautas a US → eliges Inglés (US). Esto determina qué carnada del paquete se serve al target.") }}
+        </label>
+        <select name="adset_locale_id" required class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+          {% for lid, code, label in locales %}
+            <option value="{{ lid }}" {% if lid == 6 %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Evento de optimización
+          {{ tip("Qué evento del pixel Meta optimiza. PURCHASE para BizOp/COD. LEAD para lead gen. ADD_TO_CART para upper funnel.") }}
+        </label>
+        <select name="custom_event_type" class="w-full bg-bg border border-border rounded px-3 py-2">
+          {% for code, label in event_types %}<option value="{{ code }}" {% if code == 'PURCHASE' %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-4 gap-3">
+      <div>
+        <label class="block text-sm mb-1">Qué optimizar
+          {{ tip("El evento que Meta busca dentro del adset. Conversiones (pixel) = optimiza para que dispare el evento PURCHASE/LEAD del pixel — lo correcto para BizOp/COD. LPV = vistas de landing page. Clics = más barato pero peor calidad.") }}
+        </label>
+        <select name="optimization_goal" class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+          {% for code, label in optimization_goals %}<option value="{{ code }}" {% if code == 'OFFSITE_CONVERSIONS' %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Países
+          {{ tip("Códigos ISO 3166-1 alpha-2, separados por coma. Ej: US, CO, MX, ES, AR.") }}
+        </label>
+        <input spellcheck="false" name="countries" value="US" required
+               class="w-full bg-bg border border-border rounded px-3 py-2 font-mono text-sm">
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Edad min</label>
+        <input spellcheck="false" name="age_min" type="number" value="40" min="18" max="65"
+               class="w-full bg-bg border border-border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Edad max</label>
+        <input spellcheck="false" name="age_max" type="number" value="65" min="18" max="65"
+               class="w-full bg-bg border border-border rounded px-3 py-2">
+      </div>
+    </div>
+
+    <div>
+      <label class="block text-sm mb-1">URL tags (opcional)</label>
+      <input spellcheck="false" name="url_tags" placeholder="ad_id={{ '{{ad.id}}' }}&placement={{ '{{placement}}' }}"
+             class="w-full bg-bg border border-border rounded px-3 py-2 font-mono text-xs">
+    </div>
+  </div>
+
+  <!-- ===================== ADS ===================== -->
+  <div class="bg-panel border border-border rounded-lg p-6 space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="font-semibold text-accent flex items-center gap-2">{{ icon('image') }}Anuncios
+        {{ tip("Cada anuncio usa un creativo y un paquete de copy diferente. Multi-anunciante (contextual_multi_ads) queda DESACTIVADO siempre.") }}
+      </h2>
+      <div class="flex items-center gap-3">
+        <label class="text-sm">Cantidad de ads:</label>
+        <input id="num_ads" type="number" min="1" max="50" value="3"
+               class="w-20 bg-bg border border-border rounded px-2 py-1 text-sm">
+        <button type="button" id="build-ads" class="bg-accent hover:bg-accent/80 text-white px-3 py-1.5 rounded text-sm">Generar slots</button>
+      </div>
+    </div>
+
+    <div id="ads-container" class="space-y-3"></div>
+
+    {% if not media or not copies %}
+    <div class="text-xs bg-yellow-500/10 border border-yellow-500/30 text-yellow-200 p-3 rounded">
+      {% if not media %}<div>⚠ No tienes creativos. <a href="/media" class="underline">Agrega creativos primero →</a></div>{% endif %}
+      {% if not copies %}<div>⚠ No tienes paquetes de copy. <a href="/copies/new" class="underline">Crea un paquete →</a></div>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="flex gap-3">
+    <button class="bg-accent hover:bg-accent/80 text-white px-6 py-2.5 rounded font-medium">Crear campaña en Meta (PAUSED)</button>
+    <a href="/campaigns/new-type" class="bg-bg border border-border hover:border-accent px-6 py-2.5 rounded">Cancelar</a>
+  </div>
+</form>
+
+<template id="ad-slot-tpl">
+  <div class="bg-bg border border-border rounded-lg p-4 space-y-3 ad-slot">
+    <div class="flex items-center justify-between">
+      <h3 class="font-semibold text-sm flex items-center gap-2">
+        <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-accent text-white text-xs font-bold ad-num"></span>
+        Anuncio
+      </h3>
+      <button type="button" class="text-err text-xs remove-slot">Quitar</button>
+    </div>
+    <div class="grid grid-cols-3 gap-3">
+      <div>
+        <label class="block text-xs mb-1 text-muted flex items-center gap-1">
+          🔥 Creativo REAL (sucio)
+        </label>
+        <select name="ads[IDX][media_asset_id]" required class="w-full bg-bg border border-border rounded px-2 py-1.5 text-sm">
+          <option value="">— Selecciona —</option>
+          {% for m in media %}
+            <option value="{{ m.id }}">{% if m.is_default %}🛡{% else %}🔥{% endif %} {{ m.name }} ({{ m.type }}{% if m.uploaded_to_meta %} · en Meta{% endif %})</option>
+          {% endfor %}
+        </select>
+        <div class="text-xs text-muted mt-1">Lo verá el usuario US/EN target</div>
+      </div>
+      <div>
+        <label class="block text-xs mb-1 text-muted flex items-center gap-1">
+          🛡 Creativo DEFAULT (carnada limpia)
+        </label>
+        <select name="ads[IDX][default_media_id]" required class="w-full bg-bg border border-border rounded px-2 py-1.5 text-sm">
+          <option value="">— Selecciona —</option>
+          {% for m in media %}
+            <option value="{{ m.id }}">{% if m.is_default %}🛡{% else %}🔥{% endif %} {{ m.name }} ({{ m.type }}{% if m.uploaded_to_meta %} · en Meta{% endif %})</option>
+          {% endfor %}
+        </select>
+        <div class="text-xs text-muted mt-1">Lo verá el reviewer francés</div>
+      </div>
+      <div>
+        <label class="block text-xs mb-1 text-muted">📝 Paquete de Copy (textos)</label>
+        <select name="ads[IDX][copy_bundle_id]" required class="w-full bg-bg border border-border rounded px-2 py-1.5 text-sm">
+          <option value="">— Selecciona —</option>
+          {% for c in copies %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+        <div class="text-xs text-muted mt-1">Texto real + carnadas multi-idioma</div>
+      </div>
+    </div>
+    <div>
+      <label class="block text-xs mb-1 text-muted">Call-to-Action (botón del ad)</label>
+      <select name="ads[IDX][cta_type]" class="w-full bg-bg border border-border rounded px-2 py-1.5 text-sm">
+        {% for c in ctas %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+      </select>
+    </div>
+  </div>
+</template>
+
+<script>
+(function(){
+  const container = document.getElementById('ads-container');
+  const tpl = document.getElementById('ad-slot-tpl');
+  const numInput = document.getElementById('num_ads');
+  const btn = document.getElementById('build-ads');
+
+  function renumber() {
+    container.querySelectorAll('.ad-slot').forEach((slot, i) => {
+      slot.querySelector('.ad-num').textContent = (i + 1);
+      slot.querySelectorAll('select, input, textarea').forEach(s => {
+        if (s.name) s.name = s.name.replace(/ads\[\d*\]/, `ads[${i}]`);
+      });
+    });
+  }
+
+  function addSlot() {
+    const node = tpl.content.firstElementChild.cloneNode(true);
+    node.querySelectorAll('select, input, textarea').forEach(s => { if (s.name) s.name = s.name.replace('IDX', container.children.length); });
+    node.querySelector('.remove-slot').addEventListener('click', () => { node.remove(); renumber(); });
+    container.appendChild(node);
+    renumber();
+  }
+
+  function build(n) {
+    container.innerHTML = '';
+    for (let i = 0; i < n; i++) addSlot();
+  }
+
+  btn.addEventListener('click', () => {
+    const n = Math.max(1, Math.min(50, parseInt(numInput.value || '3', 10)));
+    build(n);
+  });
+
+  build(3);
+})();
+</script>
+{% endblock %}

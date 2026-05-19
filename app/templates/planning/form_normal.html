@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, tip %}
+{% block content %}
+{% set action = '/planning/' ~ edit.id ~ '/edit' if edit else '/planning/new-normal' %}
+{% set existing_ads = (edit.config.ads if edit and edit.config else []) %}
+<h1 class="text-3xl font-bold mb-2 flex items-center gap-3">{{ icon('circle') }}{% if edit %}Editar{% else %}Planificar{% endif %} — Campaña Normal</h1>
+<p class="text-sm text-muted mb-6">Esta fila se guardará en la cola. Para crear en Meta, dale ▶ Ejecutar desde el listado.</p>
+
+<form method="post" action="{{ action }}" class="space-y-6 max-w-5xl">
+
+  <div class="bg-panel border border-border rounded-lg p-6 space-y-4">
+    <h2 class="font-semibold text-accent flex items-center gap-2">{{ icon('rocket') }}Campaña</h2>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm mb-1">Nombre</label>
+        <input spellcheck="false" name="name" required value="{{ edit.name if edit else '' }}" class="w-full bg-bg border border-border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Objetivo</label>
+        <select name="objective" class="w-full bg-bg border border-border rounded px-3 py-2">
+          {% for code, label in objectives %}<option value="{{ code }}" {% if edit and edit.objective == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="grid grid-cols-3 gap-3">
+      <div>
+        <label class="block text-sm mb-1">Cuenta</label>
+        <select name="ad_account_id" required class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+          {% for a in accounts %}<option value="{{ a.id }}" {% if (edit and edit.ad_account_id == a.id) or (not edit and settings and settings.default_ad_account_id == a.id) %}selected{% endif %}>{{ a.name }} ({{ a.currency }})</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Página</label>
+        <select name="page_id" required class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+          {% for p in pages %}<option value="{{ p.id }}" {% if (edit and edit.page_id == p.id) or (not edit and settings and settings.default_page_id == p.id) %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Pixel</label>
+        <select name="pixel_id" required class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+          {% for p in pixels %}<option value="{{ p.id }}" {% if (edit and edit.pixel_id == p.id) or (not edit and settings and settings.default_pixel_id == p.id) %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="grid grid-cols-3 gap-3">
+      <div>
+        <label class="block text-sm mb-1">CBO/ABO</label>
+        <select name="cbo_or_abo" class="w-full bg-bg border border-border rounded px-3 py-2">
+          <option value="ABO" {% if not edit or edit.cbo_or_abo == 'ABO' %}selected{% endif %}>ABO</option>
+          <option value="CBO" {% if edit and edit.cbo_or_abo == 'CBO' %}selected{% endif %}>CBO</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Budget diario (USD)</label>
+        <input spellcheck="false" name="daily_budget_usd" type="number" step="0.50" required
+               value="{{ edit.daily_budget_usd if edit else '5' }}" class="w-full bg-bg border border-border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Instagram User ID</label>
+        <input spellcheck="false" name="instagram_id" value="{{ edit.instagram_id if edit else '' }}" class="w-full bg-bg border border-border rounded px-3 py-2 font-mono text-sm">
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-panel border border-border rounded-lg p-6 space-y-4">
+    <h2 class="font-semibold text-accent flex items-center gap-2">{{ icon('trending-up') }}Estrategia de puja</h2>
+    <select name="bid_strategy" class="w-full bg-bg border border-border rounded px-3 py-2">
+      {% for code, label in bid_strategies %}<option value="{{ code }}" {% if edit and edit.bid_strategy == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm mb-1">Bid amount (USD)</label>
+        <input spellcheck="false" type="number" step="0.01" name="bid_amount" value="{% if edit and edit.bid_amount_usd %}{{ edit.bid_amount_usd }}{% endif %}" class="w-full bg-bg border border-border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm mb-1">ROAS floor</label>
+        <input spellcheck="false" type="number" step="0.01" name="roas_floor" value="{% if edit and edit.roas_floor %}{{ edit.roas_floor }}{% endif %}" class="w-full bg-bg border border-border rounded px-3 py-2">
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-panel border border-border rounded-lg p-6 space-y-4">
+    <h2 class="font-semibold text-accent flex items-center gap-2">{{ icon('target') }}Ad Set</h2>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm mb-1">Idioma del usuario target</label>
+        <select name="locale_id" required class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+          {% for lid, code, label in locales %}<option value="{{ lid }}" {% if (edit and edit.locale_id == lid) or (not edit and lid == 6) %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Evento de optimización</label>
+        <select name="custom_event_type" class="w-full bg-bg border border-border rounded px-3 py-2">
+          {% for code, label in event_types %}<option value="{{ code }}" {% if (edit and edit.custom_event_type == code) or (not edit and code == 'PURCHASE') %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="grid grid-cols-4 gap-3">
+      <div>
+        <label class="block text-sm mb-1">Qué optimizar</label>
+        <select name="optimization_goal" class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+          {% for code, label in optimization_goals %}<option value="{{ code }}" {% if (edit and edit.optimization_goal == code) or (not edit and code == 'OFFSITE_CONVERSIONS') %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Países</label>
+        <input spellcheck="false" name="countries" required value="{{ edit.countries if edit else 'US' }}" class="w-full bg-bg border border-border rounded px-3 py-2 font-mono text-sm">
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Edad min</label>
+        <input spellcheck="false" name="age_min" type="number" value="{{ edit.age_min if edit else 18 }}" class="w-full bg-bg border border-border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Edad max</label>
+        <input spellcheck="false" name="age_max" type="number" value="{{ edit.age_max if edit else 65 }}" class="w-full bg-bg border border-border rounded px-3 py-2">
+      </div>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">URL tags</label>
+      <input spellcheck="false" name="url_tags" value="{{ edit.url_tags if edit else '' }}" class="w-full bg-bg border border-border rounded px-3 py-2 font-mono text-xs">
+    </div>
+  </div>
+
+  <div class="bg-panel border border-border rounded-lg p-6 space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="font-semibold text-accent flex items-center gap-2">{{ icon('image') }}Anuncios</h2>
+      <div class="flex items-center gap-3">
+        <label class="text-sm">Cantidad:</label>
+        <input id="num_ads" type="number" min="1" max="50" value="{{ existing_ads|length or 1 }}" class="w-20 bg-bg border border-border rounded px-2 py-1 text-sm">
+        <button type="button" id="build-ads" class="bg-accent hover:bg-accent/80 text-white px-3 py-1.5 rounded text-sm">Generar slots</button>
+      </div>
+    </div>
+    <div id="ads-container" class="space-y-3"></div>
+  </div>
+
+  <div class="flex gap-3">
+    <button class="bg-accent hover:bg-accent/80 text-white px-6 py-2.5 rounded font-medium">{% if edit %}Guardar cambios{% else %}Guardar en cola{% endif %}</button>
+    <a href="/planning" class="bg-bg border border-border hover:border-accent px-6 py-2.5 rounded">Cancelar</a>
+  </div>
+</form>
+
+<template id="ad-slot-tpl">
+  <div class="bg-bg border border-border rounded-lg p-4 space-y-3 ad-slot">
+    <div class="flex items-center justify-between">
+      <h3 class="font-semibold text-sm flex items-center gap-2">
+        <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-accent text-white text-xs font-bold ad-num"></span>
+        Anuncio
+      </h3>
+      <button type="button" class="text-err text-xs remove-slot">Quitar</button>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs mb-1 text-muted">Creativo</label>
+        <select name="ads[IDX][media_asset_id]" required class="ads-media w-full bg-bg border border-border rounded px-2 py-1.5 text-sm">
+          <option value="">— Selecciona —</option>
+          {% for m in media %}<option value="{{ m.id }}">{{ m.name }} ({{ m.type }}{% if m.uploaded_to_meta %} · en Meta{% endif %})</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs mb-1 text-muted">CTA</label>
+        <select name="ads[IDX][cta_type]" class="ads-cta w-full bg-bg border border-border rounded px-2 py-1.5 text-sm">
+          {% for c in ctas %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div>
+      <label class="block text-xs mb-1 text-muted">Lander URL</label>
+      <input spellcheck="false" name="ads[IDX][link]" required class="ads-link w-full bg-bg border border-border rounded px-2 py-1.5 text-sm font-mono">
+    </div>
+    <div>
+      <label class="block text-xs mb-1 text-muted">Body</label>
+      <textarea spellcheck="false" name="ads[IDX][body]" rows="2" required class="ads-body w-full bg-bg border border-border rounded px-2 py-1.5 text-sm"></textarea>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs mb-1 text-muted">Title</label>
+        <input spellcheck="false" name="ads[IDX][title]" required class="ads-title w-full bg-bg border border-border rounded px-2 py-1.5 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs mb-1 text-muted">Description</label>
+        <input spellcheck="false" name="ads[IDX][description]" class="ads-desc w-full bg-bg border border-border rounded px-2 py-1.5 text-sm">
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+const EXISTING_ADS = {{ existing_ads | tojson }};
+(function(){
+  const container = document.getElementById('ads-container');
+  const tpl = document.getElementById('ad-slot-tpl');
+  const numInput = document.getElementById('num_ads');
+  const btn = document.getElementById('build-ads');
+
+  function renumber() {
+    container.querySelectorAll('.ad-slot').forEach((slot, i) => {
+      slot.querySelector('.ad-num').textContent = (i + 1);
+      slot.querySelectorAll('select, input, textarea').forEach(s => { if (s.name) s.name = s.name.replace(/ads\[\d*\]/, `ads[${i}]`); });
+    });
+  }
+  function addSlot(values) {
+    const node = tpl.content.firstElementChild.cloneNode(true);
+    node.querySelectorAll('select, input, textarea').forEach(s => { if (s.name) s.name = s.name.replace('IDX', container.children.length); });
+    node.querySelector('.remove-slot').addEventListener('click', () => { node.remove(); renumber(); });
+    container.appendChild(node);
+    if (values) {
+      const setVal = (sel, val) => { const el = node.querySelector(sel); if (el && val != null) el.value = val; };
+      setVal('.ads-media', values.media_asset_id);
+      setVal('.ads-cta', values.cta_type || 'LEARN_MORE');
+      setVal('.ads-link', values.link);
+      setVal('.ads-body', values.body);
+      setVal('.ads-title', values.title);
+      setVal('.ads-desc', values.description);
+    }
+    renumber();
+  }
+  function build(n, pref) {
+    container.innerHTML = '';
+    for (let i = 0; i < n; i++) addSlot(pref ? pref[i] : null);
+  }
+  btn.addEventListener('click', () => {
+    const n = Math.max(1, Math.min(50, parseInt(numInput.value || '1', 10)));
+    build(n);
+  });
+  if (EXISTING_ADS && EXISTING_ADS.length) build(EXISTING_ADS.length, EXISTING_ADS);
+  else build(1);
+})();
+</script>
+{% endblock %}

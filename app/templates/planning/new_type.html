@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block content %}
+<h1 class="text-3xl font-bold mb-2 flex items-center gap-3">{{ icon('plus') }}Nueva fila de planificación</h1>
+<p class="text-sm text-muted mb-6">¿Qué tipo de campaña vas a planificar?</p>
+
+<div class="grid grid-cols-3 gap-4 max-w-5xl">
+
+  <div class="block bg-panel border border-border rounded-lg p-6 opacity-50">
+    <div class="flex items-center gap-3 mb-3">
+      <i data-lucide="package" class="lucide-icon" style="color:#F59E0B"></i>
+      <h2 class="font-bold text-lg">Catálogo</h2>
+    </div>
+    <p class="text-sm text-muted mb-3">Próximamente desde planificación. Usa el wizard directo por ahora.</p>
+    <a href="/campaigns/new" class="text-xs text-accent hover:underline">Ir al wizard de catálogo →</a>
+  </div>
+
+  <a href="/planning/new-language" class="block bg-panel border border-border hover:border-accent rounded-lg p-6 transition group">
+    <div class="flex items-center gap-3 mb-3">
+      <i data-lucide="languages" class="lucide-icon" style="color:#14B8A6"></i>
+      <h2 class="font-bold text-lg">Truco de Idiomas</h2>
+    </div>
+    <p class="text-sm text-muted mb-3">Asset feed multi-locale con N anuncios. Reusa creativos, copies y carnadas.</p>
+    <div class="text-xs text-accent group-hover:underline">Configurar →</div>
+  </a>
+
+  <a href="/planning/new-normal" class="block bg-panel border border-border hover:border-accent rounded-lg p-6 transition group">
+    <div class="flex items-center gap-3 mb-3">
+      <i data-lucide="circle" class="lucide-icon" style="color:#3B82F6"></i>
+      <h2 class="font-bold text-lg">Normal</h2>
+    </div>
+    <p class="text-sm text-muted mb-3">Campaña estándar con N anuncios. Sin truco.</p>
+    <div class="text-xs text-accent group-hover:underline">Configurar →</div>
+  </a>
+
+</div>
+{% endblock %}

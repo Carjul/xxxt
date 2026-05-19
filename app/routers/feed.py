@@ -3,8 +3,9 @@ import csv
 import io
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
+from typing import Any as Session
 
-from ..database import MongoSession, get_db
+from ..database import get_db
 from ..models import Catalog, Product
 
 router = APIRouter()
@@ -14,7 +15,7 @@ COLS = ["id", "title", "description", "availability", "condition", "price",
 
 
 @router.get("/feed/{slug}.csv")
-def serve_feed(slug: str, db: MongoSession = Depends(get_db)):
+def serve_feed(slug: str, db: Session = Depends(get_db)):
     cat = db.query(Catalog).filter(Catalog.feed_slug == slug).first()
     if not cat:
         raise HTTPException(404)

@@ -14,6 +14,7 @@ services:
       MONGODB_URI: mongodb://mongo:27017
       MONGODB_DB_NAME: fb_catalog_dashboard
       TRICK_RUNNER_INTERVAL: 3600
+      FB_ACCESS_TOKEN: ""
     depends_on:
       mongo:
         condition: service_healthy

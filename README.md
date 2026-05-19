@@ -30,10 +30,10 @@ Dashboard local para crear y gestionar campañas Advantage+ Catalog Ads en Faceb
    pip install -r requirements.txt
    ```
 4. Copiar `.env.example` a `.env` y rellenar:
-    - `FB_ACCESS_TOKEN`: token con scopes `ads_management, business_management, catalog_management`
-    - `PUBLIC_BASE_URL`: en local usa `http://localhost:5000`
-    - `MONGODB_URI`: por ejemplo `mongodb://localhost:27017` o tu URI de Atlas
-    - `MONGODB_DB_NAME`: por ejemplo `fb_catalog_dashboard`
+   - `PUBLIC_BASE_URL`: en local usa `http://localhost:5000`
+   - `MONGODB_URI`: por ejemplo `mongodb://localhost:27017` o tu URI de Atlas
+   - `MONGODB_DB_NAME`: por ejemplo `fb_catalog_dashboard`
+   - `FB_ACCESS_TOKEN`: opcional; también puedes guardarlo desde `/setup`
 5. Correr:
    ```bash
    python run.py
@@ -46,41 +46,23 @@ Si vas a correr solo la app, necesitas que `MONGODB_URI` apunte a un MongoDB rea
 
 Opcion A: usar Docker Compose con Mongo incluido
 
-1. Copiar variables:
-   ```bash
-   cp .env.example .env
-   ```
-2. Levantar app + mongo:
-   ```bash
-   docker compose up --build -d
-   ```
+1. Copiar variables: `copy .env.example .env`
+2. Levantar app + mongo: `docker compose up --build -d`
 3. Abrir `http://localhost:5000`
-4. Ver logs si algo falla:
-   ```bash
-   docker compose logs -f app
-   ```
+4. Ver logs: `docker compose logs -f app`
 
 Opcion B: usar solo la imagen con Mongo externo
 
-1. Construir imagen:
-   ```bash
-   docker build -t fb-catalog-dashboard .
-   ```
-2. Correr contenedor:
-   ```bash
-   docker run --rm -p 5000:5000 \
-     -e PORT=5000 \
-     -e PUBLIC_BASE_URL=http://localhost:5000 \
-     -e SESSION_SECRET=change-me \
-     -e MONGODB_URI=mongodb://host.docker.internal:27017 \
-     -e MONGODB_DB_NAME=fb_catalog_dashboard \
-     fb-catalog-dashboard
-   ```
-3. Abrir `http://localhost:5000`
-
-Si usas Linux o un servidor cloud, `host.docker.internal` normalmente no funciona; en ese caso usa:
-- `docker-compose.yml` con el servicio `mongo`, o
-- una URI remota como MongoDB Atlas
+```bash
+docker build -t fb-catalog-dashboard .
+docker run --rm -p 5000:5000 \
+  -e PORT=5000 \
+  -e PUBLIC_BASE_URL=http://localhost:5000 \
+  -e SESSION_SECRET=change-me \
+  -e MONGODB_URI=mongodb://host.docker.internal:27017 \
+  -e MONGODB_DB_NAME=fb_catalog_dashboard \
+  fb-catalog-dashboard
+```
 
 ## Flujo de uso
 
@@ -93,16 +75,14 @@ Si usas Linux o un servidor cloud, `host.docker.internal` normalmente no funcion
 
 ## Arquitectura
 
-- **Backend:** FastAPI + MongoDB (`pymongo`)
+- **Backend:** FastAPI + MongoDB
 - **Frontend:** Jinja2 templates + Tailwind CSS (CDN)
 - **Cron:** APScheduler en background
 - **Feed CSV:** endpoint público `/feed/{slug}.csv` que Meta consulta
 
 ## Deploy a Render
 
-Render usa solo el contenedor web; no ejecuta `docker-compose.yml`. Para Render necesitas `MONGODB_URI` apuntando a un Mongo externo, normalmente MongoDB Atlas.
-
-Ver `INSTALL.md`.
+Ver [INSTALL.md](INSTALL.md).
 
 ## Estructura
 
@@ -110,8 +90,8 @@ Ver `INSTALL.md`.
 app/
 ├── main.py              FastAPI app + lifecycle
 ├── config.py            env vars
-├── database.py          SQLAlchemy engine
-├── models.py            tablas (Catalog, Product, ProductSet, Campaign, Template, ...)
+├── database.py          MongoDB session
+├── models.py            modelos Mongo (Catalog, Product, ProductSet, Campaign, Template, ...)
 ├── meta_api.py          wrapper Marketing API
 ├── trick_runner.py      cron del truco
 ├── routers/
@@ -126,3 +106,20 @@ app/
 ├── templates/           HTML
 └── static/              CSS, JS
 ```
+
+## MongoDB
+
+La app usa MongoDB como base principal. Para ejecutar:
+
+1. Instala dependencias: `pip install -r requirements.txt`
+2. Configura `.env`:
+   ```bash
+   MONGODB_URI=mongodb+srv://USER:PASS@HOST/?retryWrites=true&w=majority
+   MONGODB_DB_NAME=fb_catalog_dashboard
+   ```
+3. Si tienes datos viejos en SQLite, instala dependencia de migracion y ejecuta el importador una vez:
+   ```bash
+   pip install -r requirements-migration.txt
+   python scripts/migrate_to_mongo.py --source sqlite:///./data/dashboard.db --mongo-uri "mongodb+srv://USER:PASS@HOST/?retryWrites=true&w=majority"
+   ```
+4. Arranca normal: `python run.py`

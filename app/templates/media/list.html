@@ -2,84 +2,133 @@
 {% from "_macros.html" import icon, tip %}
 {% block content %}
 <div class="flex justify-between items-center mb-6">
-  <h1 class="text-3xl font-bold flex items-center gap-3">{{ icon('image') }}Media Library
-    {{ tip("Imágenes y videos subidos a Meta. Marca uno como 'default' para usarlo como carnada multi-idioma del truco.") }}
+  <h1 class="text-3xl font-bold flex items-center gap-3">{{ icon('image') }}Creativos
+    {{ tip("Pega URL de tus creativos sucios (imagen o video). Cuando montes la campaña selecciona cuál usar; se sube automáticamente a Meta en ese momento.") }}
   </h1>
 </div>
 
 <div class="bg-panel border border-border rounded-lg p-6 mb-6">
-  <h2 class="font-semibold mb-3">Subir nuevo archivo</h2>
-  <form method="post" action="/media/upload" enctype="multipart/form-data" class="space-y-3">
-    <div class="grid grid-cols-2 gap-4">
-      <div>
-        <label class="block text-sm mb-1">Ad Account ID</label>
-        <input spellcheck="false" name="ad_account_id" required placeholder="act_1540233950717702"
-               class="w-full bg-bg border border-border rounded px-3 py-2">
-      </div>
-      <div>
-        <label class="block text-sm mb-1">Language label</label>
-        <select name="language_label" class="w-full bg-bg border border-border rounded px-3 py-2">
-          <option value="en_XX">en_XX (Inglés US)</option>
-          <option value="fr_XX">fr_XX (Francés - carnada)</option>
-          <option value="es_XX">es_XX (Español)</option>
-          <option value="ru_RU">ru_RU (Ruso)</option>
-        </select>
-      </div>
+  <h2 class="font-semibold mb-3 flex items-center gap-2">{{ icon('plus') }}Agregar creativo (pegar URL)</h2>
+  <form method="post" action="/media" class="grid grid-cols-12 gap-3 items-end">
+    <div class="col-span-3">
+      <label class="block text-xs mb-1 text-muted">Nombre</label>
+      <input spellcheck="false" name="name" required placeholder="BizOp US #1"
+             class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
     </div>
-    <div>
-      <label class="block text-sm mb-1">Archivo (.jpg, .png, .mp4, .mov)</label>
-      <input type="file" name="file" accept=".jpg,.jpeg,.png,.mp4,.mov" required
-             class="w-full bg-bg border border-border rounded px-3 py-2">
+    <div class="col-span-2">
+      <label class="block text-xs mb-1 text-muted">Tipo</label>
+      <select name="type" class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+        <option value="image">Imagen</option>
+        <option value="video">Video</option>
+      </select>
     </div>
-    <div>
-      <label class="block text-sm mb-1">Notas (opcional)</label>
-      <input spellcheck="false" name="notes" placeholder="ej: BizOp US main creative #1"
-             class="w-full bg-bg border border-border rounded px-3 py-2">
+    <div class="col-span-5">
+      <label class="block text-xs mb-1 text-muted">URL del creativo</label>
+      <input spellcheck="false" name="public_url" required placeholder="https://cdn.example.com/creativo.jpg"
+             class="w-full bg-bg border border-border rounded px-3 py-2 text-sm font-mono">
     </div>
-    <label class="flex items-center gap-2 cursor-pointer">
-      <input type="checkbox" name="is_default" value="yes" class="w-4 h-4">
-      <span class="text-sm">Es creativo DEFAULT (carnada multi-idioma)</span>
-    </label>
-    <button class="bg-accent hover:bg-accent/80 text-white px-4 py-2 rounded">Subir a Meta</button>
+    <div class="col-span-2">
+      <button class="w-full bg-accent hover:bg-accent/80 text-white px-3 py-2 rounded text-sm font-medium">Agregar</button>
+    </div>
+    <div class="col-span-12 flex items-center gap-6">
+      <label class="flex items-center gap-2 text-sm cursor-pointer">
+        <input type="checkbox" name="is_default" value="yes" class="w-4 h-4">
+        <span>Este creativo es <strong>carnada limpia</strong> (lifestyle/benigno) — lo verá el reviewer</span>
+      </label>
+    </div>
+    <div class="col-span-12">
+      <label class="block text-xs mb-1 text-muted">Notas (opcional)</label>
+      <input spellcheck="false" name="notes" placeholder="ej: BizOp US main creative para THM-72"
+             class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+    </div>
   </form>
 </div>
 
 {% if items %}
+<form method="post" action="/media/bulk-delete" onsubmit="return confirm('¿Borrar los seleccionados?')">
+<div class="flex justify-between items-center mb-3">
+  <button type="submit" class="text-sm bg-err/80 hover:bg-err text-white px-3 py-1.5 rounded" id="bulk-del-btn" disabled>
+    Borrar seleccionados
+  </button>
+  <span class="text-xs text-muted"><span id="sel-count">0</span> seleccionados</span>
+</div>
 <div class="bg-panel border border-border rounded-lg overflow-hidden">
   <table class="w-full text-sm">
     <thead class="bg-bg border-b border-border text-xs">
       <tr>
+        <th class="px-3 py-2"><input type="checkbox" id="sel-all" class="w-4 h-4"></th>
         <th class="text-left px-3 py-2">Nombre</th>
         <th class="text-left px-3 py-2">Tipo</th>
-        <th class="text-left px-3 py-2">Label</th>
-        <th class="text-left px-3 py-2">Default</th>
-        <th class="text-left px-3 py-2">Meta ID</th>
-        <th class="text-left px-3 py-2">Cuenta</th>
+        <th class="text-left px-3 py-2">Rol</th>
+        <th class="text-left px-3 py-2">URL</th>
+        <th class="text-left px-3 py-2">En Meta</th>
         <th class="text-left px-3 py-2">Acciones</th>
       </tr>
     </thead>
     <tbody>
       {% for m in items %}
       <tr class="border-t border-border">
+        <td class="px-3 py-2"><input type="checkbox" name="selected_ids" value="{{ m.id }}" class="row-check w-4 h-4"></td>
         <td class="px-3 py-2 font-medium">{{ m.name }}</td>
-        <td class="px-3 py-2">{{ m.type }}</td>
-        <td class="px-3 py-2 font-mono text-xs">{{ m.language_label }}</td>
-        <td class="px-3 py-2">{% if m.is_default %}⭐ Sí{% else %}—{% endif %}</td>
-        <td class="px-3 py-2 font-mono text-xs">{{ m.meta_id[:20] }}...</td>
-        <td class="px-3 py-2 text-xs">{{ m.ad_account_id }}</td>
         <td class="px-3 py-2">
-          <form method="post" action="/media/{{ m.id }}/delete" class="inline" onsubmit="return confirm('Borrar?')">
-            <button class="text-err text-xs">Borrar</button>
-          </form>
+          <span class="inline-block text-xs px-2 py-0.5 rounded {% if m.type == 'video' %}bg-purple-500/20 text-purple-300{% else %}bg-blue-500/20 text-blue-300{% endif %}">{{ m.type }}</span>
+        </td>
+        <td class="px-3 py-2">
+          {% if m.is_default %}
+            <span class="inline-block text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-300" title="Carnada limpia: lifestyle/benigno, lo ve el reviewer">🛡 Carnada</span>
+          {% else %}
+            <span class="inline-block text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-300" title="Creativo real: sucio/agresivo, lo ve el usuario target">🔥 Real</span>
+          {% endif %}
+        </td>
+        <td class="px-3 py-2 text-xs">
+          {% if m.public_url %}<a href="{{ m.public_url }}" target="_blank" class="text-accent hover:underline font-mono">{{ m.public_url[:55] }}{% if m.public_url|length > 55 %}…{% endif %}</a>{% else %}—{% endif %}
+        </td>
+        <td class="px-3 py-2 text-xs">
+          {% if m.uploaded_to_meta and m.meta_id %}
+            <span class="text-green-400">✓ {{ m.meta_id[:18] }}…</span>
+          {% else %}
+            <span class="text-muted">pendiente</span>
+          {% endif %}
+        </td>
+        <td class="px-3 py-2">
+          <div class="flex gap-2 items-center">
+            <a href="/media/{{ m.id }}/edit" class="text-xs bg-bg border border-border hover:border-accent px-2 py-1 rounded">Editar</a>
+            {% if not m.uploaded_to_meta %}
+            <button type="button"
+              onclick="event.preventDefault(); const f=document.createElement('form');f.method='post';f.action='/media/{{ m.id }}/upload';f.innerHTML='<input name=ad_account_id value=\'\'>';document.body.appendChild(f);f.submit();"
+              class="text-xs bg-accent/80 hover:bg-accent text-white px-2 py-1 rounded">Subir a Meta</button>
+            {% endif %}
+            <button type="button" onclick="event.preventDefault(); if(confirm('Borrar?')){const f=document.createElement('form');f.method='post';f.action='/media/{{ m.id }}/delete';document.body.appendChild(f);f.submit();}"
+              class="text-err text-xs">Borrar</button>
+          </div>
         </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
+</form>
+
+<script>
+(function(){
+  const all = document.getElementById('sel-all');
+  const rows = document.querySelectorAll('.row-check');
+  const btn = document.getElementById('bulk-del-btn');
+  const cnt = document.getElementById('sel-count');
+  function update() {
+    const n = [...rows].filter(c=>c.checked).length;
+    cnt.textContent = n;
+    btn.disabled = n === 0;
+    btn.classList.toggle('opacity-50', n === 0);
+  }
+  all && all.addEventListener('change', () => { rows.forEach(c => c.checked = all.checked); update(); });
+  rows.forEach(c => c.addEventListener('change', update));
+  update();
+})();
+</script>
 {% else %}
 <div class="bg-panel border border-border rounded-lg p-8 text-center text-muted">
-  No tienes archivos aún. Sube tu primera imagen o video arriba.
+  Aún no tienes creativos. Pega la URL de uno arriba para empezar.
 </div>
 {% endif %}
 {% endblock %}

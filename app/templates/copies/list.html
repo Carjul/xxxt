@@ -14,7 +14,8 @@
     <thead class="bg-bg border-b border-border text-xs">
       <tr>
         <th class="text-left px-3 py-2">Nombre</th>
-        <th class="text-left px-3 py-2">Idioma real</th>
+        <th class="text-left px-3 py-2">Idioma target</th>
+        <th class="text-left px-3 py-2">Carnadas</th>
         <th class="text-left px-3 py-2">URL real</th>
         <th class="text-left px-3 py-2">Acciones</th>
       </tr>
@@ -23,12 +24,16 @@
       {% for c in items %}
       <tr class="border-t border-border">
         <td class="px-3 py-2 font-medium">{{ c.name }}</td>
-        <td class="px-3 py-2 font-mono text-xs">{{ c.real_label }}</td>
+        <td class="px-3 py-2 font-mono text-xs">{{ c.target_locale_code or c.real_label }}</td>
+        <td class="px-3 py-2 text-xs">{% if c.carnada_ids %}{{ c.carnada_ids|length }} idioma(s){% else %}—{% endif %}</td>
         <td class="px-3 py-2 text-xs">{{ c.real_url[:40] }}...</td>
         <td class="px-3 py-2">
-          <form method="post" action="/copies/{{ c.id }}/delete" class="inline" onsubmit="return confirm('Borrar?')">
-            <button class="text-err text-xs">Borrar</button>
-          </form>
+          <div class="flex gap-2">
+            <a href="/copies/{{ c.id }}/edit" class="text-xs bg-bg border border-border hover:border-accent px-2 py-1 rounded">Editar</a>
+            <form method="post" action="/copies/{{ c.id }}/delete" class="inline" onsubmit="return confirm('Borrar?')">
+              <button class="text-err text-xs">Borrar</button>
+            </form>
+          </div>
         </td>
       </tr>
       {% endfor %}

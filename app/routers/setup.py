@@ -6,9 +6,9 @@ from fastapi.responses import RedirectResponse
 from .. import meta_api
 from ..database import MongoSession, get_db
 from ..meta_connections import (
-    get_effective_defaults,
     get_active_connection,
     get_active_token,
+    get_effective_defaults,
     list_connections,
     set_active_connection,
     test_connection_token,
@@ -61,13 +61,8 @@ def _build_setup_context(request: Request, db: MongoSession, *, error: str | Non
 
     selected_business_id = defaults["business_id"]
     if selected_business_id and not any(b.get("id") == selected_business_id for b in businesses):
-        fallback_name = None
-        if active_connection and active_connection.business_id == selected_business_id:
-            fallback_name = active_connection.business_name
-        businesses = businesses + [{
-            "id": selected_business_id,
-            "name": fallback_name or "BM guardado",
-        }]
+        fallback_name = active_connection.business_name if active_connection and active_connection.business_id == selected_business_id else None
+        businesses = businesses + [{"id": selected_business_id, "name": fallback_name or "BM guardado"}]
 
     return {
         "request": request,

@@ -8,27 +8,29 @@ import requests
 from .config import FB_ACCESS_TOKEN, FB_GRAPH_BASE
 
 
+def get_effective_token() -> str:
+    try:
+        from .database import create_db_session
+        from .meta_connections import get_active_token
+        db = create_db_session()
+        try:
+            return get_active_token(db) or ""
+        finally:
+            db.close()
+    except Exception:
+        return FB_ACCESS_TOKEN or ""
+
+
 class MetaApiError(Exception):
     def __init__(self, status: int, payload: dict):
         self.status = status
         self.payload = payload
-        error = payload.get("error", {}) if isinstance(payload, dict) else {}
-        parts = []
-        if status:
-            parts.append(f"HTTP {status}")
-        if error.get("type"):
-            parts.append(error["type"])
-        if error.get("code") is not None:
-            parts.append(f"code {error['code']}")
-        if error.get("error_subcode") is not None:
-            parts.append(f"subcode {error['error_subcode']}")
-        if error.get("message"):
-            parts.append(error["message"])
-        if error.get("error_user_msg"):
-            parts.append(error["error_user_msg"])
-        if error.get("fbtrace_id"):
-            parts.append(f"trace {error['fbtrace_id']}")
-        msg = " | ".join(parts) or json.dumps(payload)[:300]
+        err = payload.get("error", {}) if isinstance(payload, dict) else {}
+        title = err.get("error_user_title") or err.get("message") or "Unknown error"
+        detail = err.get("error_user_msg") or ""
+        msg = f"{title}" + (f" — {detail}" if detail else "")
+        if not msg.strip() or msg == "Unknown error":
+            msg = json.dumps(payload)[:300]
         super().__init__(f"[{status}] {msg}")
 
 
@@ -36,14 +38,14 @@ def _request(method: str, path: str, *, token: Optional[str] = None, params: Opt
              data: Optional[dict] = None, retries: int = 3) -> Dict[str, Any]:
     url = path if path.startswith("http") else f"{FB_GRAPH_BASE}/{path.lstrip('/')}"
     p = dict(params or {})
-    p["access_token"] = token or FB_ACCESS_TOKEN
+    p["access_token"] = token or get_effective_token()
 
     for attempt in range(retries):
         try:
-            if method == "GET":
-                r = requests.request(method, url, params=p, timeout=60)
-            else:
-                r = requests.request(method, url, params=p, data=data, timeout=60)
+            kwargs = {"params": p, "timeout": 60}
+            if method != "GET" and data is not None:
+                kwargs["data"] = data
+            r = requests.request(method, url, **kwargs)
             try:
                 payload = r.json()
             except ValueError:

@@ -10,15 +10,9 @@
 <div class="bg-err/10 border border-err rounded p-4 mb-6 flex items-start gap-3">
   {{ icon('alert-triangle', 'lucide-icon text-err') }}
   <div>
-    <strong class="text-err">No hay una conexion Meta activa.</strong>
-    <p class="text-sm mt-1">Ve a <a href="/setup" class="underline">Configuracion</a> y activa una conexion para usar Meta en toda la app.</p>
+    <strong class="text-err">Token de Facebook no configurado.</strong>
+    <p class="text-sm mt-1">Define <code>FB_ACCESS_TOKEN</code> en tu archivo <code>.env</code> y reinicia.</p>
   </div>
-</div>
-{% endif %}
-
-{% if active_connection %}
-<div class="bg-panel border border-border rounded p-4 mb-6 text-sm">
-  Trabajando con <strong>{{ active_connection.name }}</strong>{% if active_connection.business_name %} - {{ active_connection.business_name }}{% endif %}
 </div>
 {% endif %}
 

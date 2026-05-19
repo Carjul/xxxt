@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Depends, Request, Form, HTTPException
 from fastapi.responses import RedirectResponse
+from typing import Any as Session
 
-from ..database import MongoSession, get_db
+from ..database import get_db
 from ..models import Catalog, Product
 
 router = APIRouter()
 
 
 @router.get("/catalogs/{cat_id}/products")
-def list_products(cat_id: int, request: Request, db: MongoSession = Depends(get_db)):
+def list_products(cat_id: int, request: Request, db: Session = Depends(get_db)):
     cat = db.query(Catalog).filter(Catalog.id == cat_id).first()
     if not cat:
         raise HTTPException(404)
@@ -19,7 +20,7 @@ def list_products(cat_id: int, request: Request, db: MongoSession = Depends(get_
 
 
 @router.post("/catalogs/{cat_id}/products/bulk")
-async def bulk_save(cat_id: int, request: Request, db: MongoSession = Depends(get_db)):
+async def bulk_save(cat_id: int, request: Request, db: Session = Depends(get_db)):
     cat = db.query(Catalog).filter(Catalog.id == cat_id).first()
     if not cat:
         raise HTTPException(404)
@@ -61,7 +62,7 @@ async def bulk_save(cat_id: int, request: Request, db: MongoSession = Depends(ge
 
 
 @router.post("/catalogs/{cat_id}/products/{prod_id}/delete")
-def delete_product(cat_id: int, prod_id: int, db: MongoSession = Depends(get_db)):
+def delete_product(cat_id: int, prod_id: int, db: Session = Depends(get_db)):
     p = db.query(Product).filter(Product.id == prod_id).first()
     if p:
         db.delete(p)

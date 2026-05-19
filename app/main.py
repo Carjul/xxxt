@@ -8,10 +8,11 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
 from .config import SESSION_SECRET, PUBLIC_BASE_URL
-from .database import Base, MongoSession, SessionLocal, engine, get_db, migrate_db
+from .database import create_db_session, get_db, migrate_db
 from .meta_connections import get_active_connection, get_active_token, upsert_env_connection
 from .models import Catalog, Product, ProductSet, Campaign, CampaignTemplate
-from .routers import setup, catalogs, products, sets, campaigns, templates as tpl_router, trick, feed, language_routes
+from .routers import setup, catalogs, products, sets, campaigns, templates as tpl_router, trick, feed
+from .routers import language_routes, planning
 from .trick_runner import start_scheduler, stop_scheduler
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s | %(message)s")
@@ -19,9 +20,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
     migrate_db()
-    db = SessionLocal()
+    db = create_db_session()
     try:
         upsert_env_connection(db)
         if get_active_token(db):
@@ -48,10 +48,11 @@ app.include_router(tpl_router.router)
 app.include_router(trick.router)
 app.include_router(feed.router)
 app.include_router(language_routes.router)
+app.include_router(planning.router)
 
 
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request, db: MongoSession = Depends(get_db)):
+def home(request: Request, db = Depends(get_db)):
     active_connection = get_active_connection(db)
     stats = {
         "catalogs": db.query(Catalog).count(),
@@ -75,4 +76,4 @@ def home(request: Request, db: MongoSession = Depends(get_db)):
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "database_backend": "mongodb"}

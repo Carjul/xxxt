@@ -3,14 +3,14 @@ import logging
 import requests
 from typing import Optional
 
-from .database import SessionLocal
+from .database import create_db_session
 from .models import AppSettings
 
 log = logging.getLogger("notifier")
 
 
 def _get_settings() -> Optional[AppSettings]:
-    db = SessionLocal()
+    db = create_db_session()
     try:
         return db.query(AppSettings).first()
     finally:

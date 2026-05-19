@@ -1,51 +1,51 @@
 {% extends "base.html" %}
 {% from "_macros.html" import icon, tip %}
 {% block content %}
-<h1 class="text-3xl font-bold mb-2 flex items-center gap-3">{{ icon('plus') }}Nuevo Paquete de Copy</h1>
-<p class="text-sm text-muted mb-6">Un paquete = un copy <strong>real</strong> (sucio, el que verá el usuario target) + las <strong>carnadas</strong> que verá el reviewer.</p>
+<h1 class="text-3xl font-bold mb-2 flex items-center gap-3">{{ icon('edit') }}Editar paquete de copy</h1>
+<p class="text-sm text-muted mb-6">Edita el copy real y las carnadas seleccionadas.</p>
 
-<form method="post" action="/copies" class="bg-panel border border-border rounded-lg p-6 space-y-6 max-w-4xl">
-  <input type="hidden" name="carnada_order" id="carnada_order" value="">
+<form method="post" action="/copies/{{ item.id }}/edit" class="bg-panel border border-border rounded-lg p-6 space-y-6 max-w-4xl">
+  <input type="hidden" name="carnada_order" id="carnada_order" value="{{ selected_ids|join(',') }}">
+
   <div>
     <label class="block text-sm font-medium mb-1">Nombre del paquete</label>
-    <input spellcheck="false" name="name" required placeholder="BizOp US Pack #1"
+    <input spellcheck="false" name="name" value="{{ item.name }}" required
            class="w-full bg-bg border border-border rounded px-3 py-2">
   </div>
 
   <div class="bg-bg border border-border rounded-lg p-4 space-y-4">
     <h3 class="font-semibold flex items-center gap-2 text-accent">
       {{ icon('target') }}Copy REAL (lo que verán los usuarios target)
-      {{ tip("Este es el copy 'sucio' (BizOp agresivo). Solo lo verán los usuarios del idioma que selecciones abajo.") }}
     </h3>
     <div class="grid grid-cols-2 gap-3">
       <div>
         <label class="block text-sm mb-1">Idioma del usuario target</label>
         <select name="target_locale_id" required class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
           {% for lid, code, label in locales %}
-            <option value="{{ lid }}" data-code="{{ code }}" {% if lid == 6 %}selected{% endif %}>{{ label }}</option>
+            <option value="{{ lid }}" {% if lid == item.target_locale_id %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
       </div>
       <div>
-        <label class="block text-sm mb-1">URL real (lander con BizOp)</label>
-        <input spellcheck="false" name="real_url" required placeholder="https://track.tu-dominio.com/?campaign={campaign.id}"
+        <label class="block text-sm mb-1">URL real</label>
+        <input spellcheck="false" name="real_url" value="{{ item.real_url }}" required
                class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
       </div>
     </div>
     <div>
-      <label class="block text-sm mb-1">Body (texto principal)</label>
-      <textarea spellcheck="false" name="real_body" rows="3" required placeholder="Make $500/day from home..."
-                class="w-full bg-bg border border-border rounded px-3 py-2"></textarea>
+      <label class="block text-sm mb-1">Body</label>
+      <textarea spellcheck="false" name="real_body" rows="3" required
+                class="w-full bg-bg border border-border rounded px-3 py-2">{{ item.real_body }}</textarea>
     </div>
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="block text-sm mb-1">Title (headline)</label>
-        <input spellcheck="false" name="real_title" required placeholder="$500/day BizOp"
+        <label class="block text-sm mb-1">Title</label>
+        <input spellcheck="false" name="real_title" value="{{ item.real_title }}" required
                class="w-full bg-bg border border-border rounded px-3 py-2">
       </div>
       <div>
-        <label class="block text-sm mb-1">Description (opcional)</label>
-        <input spellcheck="false" name="real_desc" placeholder="Limited spots available"
+        <label class="block text-sm mb-1">Description</label>
+        <input spellcheck="false" name="real_desc" value="{{ item.real_desc or '' }}"
                class="w-full bg-bg border border-border rounded px-3 py-2">
       </div>
     </div>
@@ -54,15 +54,16 @@
   <div class="bg-bg border border-border rounded-lg p-4 space-y-3">
     <h3 class="font-semibold flex items-center gap-2 text-purple-300">
       {{ icon('shield') }}Carnadas (lo que ve el reviewer)
-      {{ tip("Selecciona qué carnadas del repositorio global incluir en este paquete. Lo común es marcar 3-5 idiomas. La primera marcada será la 'default' que ve el reviewer.") }}
+      {{ tip("El número indica el orden en que el reviewer las verá. El creativo REAL se inserta automáticamente en el MEDIO del paquete.") }}
     </h3>
 
     {% if carnadas %}
-    <p class="text-xs text-muted">Marca los idiomas a incluir como carnada (mínimo 1). El número indica el orden en que el reviewer las verá. El <strong class="text-accent">creativo REAL se insertará automáticamente en el MEDIO</strong> del paquete para mejor aprobación.</p>
+    <p class="text-xs text-muted">Marca los idiomas a incluir:</p>
     <div class="grid grid-cols-2 gap-2">
       {% for c in carnadas %}
       <label class="flex items-start gap-2 p-2 bg-panel border border-border rounded cursor-pointer hover:border-accent">
-        <input type="checkbox" name="carnada_ids" value="{{ c.id }}" class="mt-1 w-4 h-4">
+        <input type="checkbox" name="carnada_ids" value="{{ c.id }}" class="mt-1 w-4 h-4"
+               {% if c.id in selected_ids %}checked{% endif %}>
         <div class="flex-1 text-sm">
           <div class="font-medium flex items-center gap-2">
             <span class="carnada-order hidden inline-flex items-center justify-center w-5 h-5 rounded-full bg-accent text-white text-xs font-bold"></span>
@@ -74,20 +75,24 @@
       {% endfor %}
     </div>
     {% else %}
-    <div class="text-sm text-muted p-3 bg-panel border border-dashed border-border rounded">
-      No tienes carnadas creadas todavía. <a href="/carnadas" class="text-accent hover:underline">Crea tu primera carnada →</a>
-    </div>
+    <div class="text-sm text-muted">Sin carnadas. <a href="/carnadas" class="text-accent">Crea una →</a></div>
     {% endif %}
   </div>
 
-  <button class="bg-accent hover:bg-accent/80 text-white px-5 py-2 rounded font-medium">Guardar paquete</button>
+  <div class="flex gap-2">
+    <button class="bg-accent hover:bg-accent/80 text-white px-5 py-2 rounded font-medium">Guardar cambios</button>
+    <a href="/copies" class="bg-bg border border-border hover:border-accent px-5 py-2 rounded">Cancelar</a>
+  </div>
 </form>
 
 <script>
 (function() {
-  const form = document.querySelector('form[action="/copies"]');
+  const form = document.querySelector('form[action^="/copies/"]');
   if (!form) return;
-  const order = [];
+  // Inicializar con el orden guardado
+  const initial = (document.getElementById('carnada_order').value || '').split(',').filter(Boolean);
+  const order = [...initial];
+
   function refresh() {
     form.querySelectorAll('input[name="carnada_ids"]').forEach(cb => {
       const badge = cb.closest('label').querySelector('.carnada-order');
@@ -112,6 +117,7 @@
       document.getElementById('carnada_order').value = order.join(',');
     });
   });
+  refresh();
 })();
 </script>
 {% endblock %}

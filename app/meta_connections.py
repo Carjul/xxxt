@@ -27,6 +27,9 @@ def get_active_token(db):
     connection = get_active_connection(db)
     if connection and connection.token:
         return connection.token
+    settings = db.query(AppSettings).first()
+    if settings and settings.fb_access_token:
+        return settings.fb_access_token
     return FB_ACCESS_TOKEN or None
 
 

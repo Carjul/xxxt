@@ -41,7 +41,7 @@
       </div>
       <div>
         <label class="block text-sm font-medium mb-1 flex items-center">Objetivo
-          {{ tip("Las campanas de este dashboard usan catalogo, asi que por ahora solo se soporta OUTCOME_SALES.") }}
+          {{ tip("OUTCOME_SALES es lo normal para campañas de venta con catálogo. Los demás son para tráfico, leads, etc.") }}
         </label>
         <select name="objective" class="w-full bg-bg border border-border rounded px-3 py-2">
           {% for o in objectives %}<option value="{{ o }}" {% if form and form.objective == o %}selected{% endif %}>{{ o }}</option>{% endfor %}
@@ -59,7 +59,7 @@
         </label>
         <select name="budget_type" class="w-full bg-bg border border-border rounded px-3 py-2">
           <option value="daily">Diario</option>
-          <option value="lifetime" disabled>Total (proximamente)</option>
+          <option value="lifetime">Total</option>
         </select>
       </div>
       <div>
@@ -124,7 +124,7 @@
       <div>
         <label class="block text-sm font-medium mb-1">Cuenta publicitaria</label>
         <select name="ad_account_id" required class="w-full bg-bg border border-border rounded px-3 py-2">
-          {% for a in accounts %}<option value="{{ a.id }}" {% if (form and form.ad_account_id == a.id) or (not form and defaults and defaults.ad_account_id == a.id) %}selected{% endif %}>{{ a.name }} ({{ a.currency }})</option>{% endfor %}
+          {% for a in accounts %}<option value="{{ a.id }}" {% if (form and form.ad_account_id == a.id) or (not form and settings and settings.default_ad_account_id == a.id) %}selected{% endif %}>{{ a.name }} ({{ a.currency }})</option>{% endfor %}
         </select>
       </div>
       <div>
@@ -132,7 +132,7 @@
           {{ tip("La fan page que aparecerá como anunciante. Si tienes varias páginas (una por nicho), elige la correcta para esta campaña.") }}
         </label>
         <select name="page_id" required class="w-full bg-bg border border-border rounded px-3 py-2">
-          {% for p in pages %}<option value="{{ p.id }}" {% if (form and form.page_id == p.id) or (not form and defaults and defaults.page_id == p.id) %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+          {% for p in pages %}<option value="{{ p.id }}" {% if (form and form.page_id == p.id) or (not form and settings and settings.default_page_id == p.id) %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
         </select>
       </div>
       <div>
@@ -140,7 +140,7 @@
           {{ tip("Pixel que trackea conversiones. Debe estar firing en el lander de esta campaña. Si tienes 2 landers con pixeles distintos, elige el que corresponda.") }}
         </label>
         <select name="pixel_id" required class="w-full bg-bg border border-border rounded px-3 py-2">
-          {% for p in pixels %}<option value="{{ p.id }}" {% if (form and form.pixel_id == p.id) or (not form and defaults and defaults.pixel_id == p.id) %}selected{% endif %}>{{ p.name }} ({{ p.id }})</option>{% endfor %}
+          {% for p in pixels %}<option value="{{ p.id }}" {% if (form and form.pixel_id == p.id) or (not form and settings and settings.default_pixel_id == p.id) %}selected{% endif %}>{{ p.name }} ({{ p.id }})</option>{% endfor %}
         </select>
       </div>
       <div>

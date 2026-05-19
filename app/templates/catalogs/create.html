@@ -17,7 +17,7 @@
       {{ tip("ID del BM donde se va a crear el catálogo. Mira en Business Settings → Información de la empresa.") }}
     </label>
     <input spellcheck="false" name="business_id" required class="w-full bg-bg border border-border rounded px-3 py-2"
-           value="{{ (form.business_id if form else (defaults.business_id if defaults else (settings.default_business_id if settings else ''))) }}" placeholder="631835841698356">
+           value="{{ (form.business_id if form else (settings.default_business_id if settings else '')) }}" placeholder="631835841698356">
   </div>
 
   <div>
@@ -25,7 +25,7 @@
       {{ tip("Opcional. Si lo pones, el catálogo se asocia con este pixel para trackear conversiones de productos.") }}
     </label>
     <input spellcheck="false" name="pixel_id" class="w-full bg-bg border border-border rounded px-3 py-2"
-           value="{{ (form.pixel_id if form else (defaults.pixel_id if defaults else (settings.default_pixel_id if settings else ''))) }}">
+           value="{{ (form.pixel_id if form else (settings.default_pixel_id if settings else '')) }}">
   </div>
 
   <div class="bg-bg border border-border rounded p-4 space-y-2">

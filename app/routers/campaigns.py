@@ -1,10 +1,10 @@
 import json
 from fastapi import APIRouter, Depends, Request, Form, HTTPException
 from fastapi.responses import RedirectResponse
+from typing import Any as Session
 
 from .. import meta_api
-from ..meta_api import MetaApiError
-from ..database import MongoSession, get_db
+from ..database import get_db
 from ..meta_connections import get_active_token, get_effective_defaults
 from ..models import Campaign, Catalog, ProductSet, CampaignTemplate, AppSettings
 
@@ -18,12 +18,12 @@ BID_STRATEGIES = [
     ("LOWEST_COST_WITH_BID_CAP", "Límite de puja"),
 ]
 CTAS = ["LEARN_MORE", "SHOP_NOW", "SIGN_UP", "SUBSCRIBE", "GET_OFFER", "APPLY_NOW", "DOWNLOAD"]
-OBJECTIVES = ["OUTCOME_SALES"]
-EVENT_TYPES = ["PURCHASE", "INITIATED_CHECKOUT", "ADD_TO_CART", "LEAD", "COMPLETE_REGISTRATION", "CONTENT_VIEW"]
+OBJECTIVES = ["OUTCOME_SALES", "OUTCOME_LEADS", "OUTCOME_TRAFFIC", "OUTCOME_AWARENESS", "OUTCOME_ENGAGEMENT"]
+EVENT_TYPES = ["PURCHASE", "INITIATE_CHECKOUT", "ADD_TO_CART", "LEAD", "COMPLETE_REGISTRATION", "VIEW_CONTENT"]
 
 
 @router.get("/campaigns")
-def list_campaigns(request: Request, db: MongoSession = Depends(get_db)):
+def list_campaigns(request: Request, db: Session = Depends(get_db)):
     camps = db.query(Campaign).order_by(Campaign.created_at.desc()).all()
     return request.app.state.templates.TemplateResponse(request, "campaigns/list.html", {
         "request": request, "campaigns": camps,
@@ -31,22 +31,27 @@ def list_campaigns(request: Request, db: MongoSession = Depends(get_db)):
 
 
 @router.get("/campaigns/new")
-def new_campaign(request: Request, db: MongoSession = Depends(get_db)):
+def new_campaign(request: Request, db: Session = Depends(get_db)):
     s = db.query(AppSettings).first()
+    if not s:
+        s = AppSettings()
+        db.add(s)
+        db.commit()
     defaults = get_effective_defaults(db)
+    for key, value in defaults.items():
+        setattr(s, f"default_{key}", value)
     catalogs = db.query(Catalog).all()
     sets = db.query(ProductSet).all()
     templates = db.query(CampaignTemplate).order_by(CampaignTemplate.created_at.desc()).all()
 
     accounts, pages, pixels = [], [], []
-    token = get_active_token(db)
     try:
-        if token:
-            accounts = meta_api.list_ad_accounts(token=token)
-            pages = meta_api.list_pages(token=token)
-        if defaults["ad_account_id"]:
+        token = get_active_token(db)
+        accounts = meta_api.list_ad_accounts(token=token)
+        pages = meta_api.list_pages(token=token)
+        if s and s.default_ad_account_id:
             try:
-                pixels = meta_api.list_pixels(defaults["ad_account_id"], token=token)
+                pixels = meta_api.list_pixels(s.default_ad_account_id, token=token)
             except Exception:
                 pass
     except Exception:
@@ -54,7 +59,6 @@ def new_campaign(request: Request, db: MongoSession = Depends(get_db)):
 
     return request.app.state.templates.TemplateResponse(request, "campaigns/wizard.html", {
         "request": request, "settings": s,
-        "defaults": defaults,
         "catalogs": catalogs, "sets": sets, "templates": templates,
         "accounts": accounts, "pages": pages, "pixels": pixels,
         "bid_strategies": BID_STRATEGIES, "ctas": CTAS,
@@ -63,14 +67,9 @@ def new_campaign(request: Request, db: MongoSession = Depends(get_db)):
 
 
 @router.post("/campaigns")
-async def create_campaign(request: Request, db: MongoSession = Depends(get_db)):
+async def create_campaign(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
     cfg = {k: v for k, v in form.items()}
-    token = get_active_token(db)
-    defaults = get_effective_defaults(db)
-
-    if not token:
-        raise HTTPException(400, "No hay una conexion Meta activa")
 
     name = cfg.get("name", "").strip()
     ad_account_id = cfg.get("ad_account_id", "").replace("act_", "")
@@ -97,23 +96,6 @@ async def create_campaign(request: Request, db: MongoSession = Depends(get_db)):
     if not pset or not pset.fb_set_id:
         raise HTTPException(400, "Product set debe estar sincronizado con Meta antes")
     catalog = db.query(Catalog).filter(Catalog.id == pset.catalog_id).first()
-    if not catalog or not catalog.fb_catalog_id or catalog.fb_catalog_id.startswith("local-"):
-        raise HTTPException(400, "El catalogo del product set debe estar sincronizado con Meta antes")
-
-    if objective != "OUTCOME_SALES":
-        raise HTTPException(400, "Por ahora las campanas de catalogo solo soportan OUTCOME_SALES")
-    if budget_type != "daily":
-        raise HTTPException(400, "Por ahora solo esta soportado presupuesto diario para evitar errores de Meta")
-    if not page_id:
-        raise HTTPException(400, "Selecciona una pagina de Facebook")
-    if not pixel_id:
-        raise HTTPException(400, "Selecciona un pixel")
-    if not cfg.get("lander", "").strip():
-        raise HTTPException(400, "Lander URL es obligatoria")
-    if bid_strategy in {"COST_CAP", "LOWEST_COST_WITH_BID_CAP"} and not str(bid_amount).strip():
-        raise HTTPException(400, "La estrategia de puja seleccionada requiere Bid amount")
-    if bid_strategy == "LOWEST_COST_WITH_MIN_ROAS" and not str(roas_floor).strip():
-        raise HTTPException(400, "La estrategia de puja ROAS requiere ROAS floor")
 
     lander = cfg.get("lander", "")
     message = cfg.get("message", "{{product.description}}")
@@ -125,52 +107,55 @@ async def create_campaign(request: Request, db: MongoSession = Depends(get_db)):
 
     save_template = cfg.get("save_as_template", "")
 
+    log_lines = []
     out = {}
 
     try:
-        effective_instagram_id = instagram_id
-        if not effective_instagram_id:
-            try:
-                for page in meta_api.list_pages(token=token):
-                    if str(page.get("id")) == str(page_id):
-                        ig_account = page.get("instagram_business_account") or {}
-                        effective_instagram_id = ig_account.get("id") or None
-                        break
-            except Exception:
-                pass
-
         camp_payload = {
             "name": name,
             "objective": objective,
             "status": "PAUSED",
+            "buying_type": "AUCTION",
             "special_ad_categories": json.dumps([]),
-            "is_adset_budget_sharing_enabled": False,
+            "is_adset_budget_sharing_enabled": cbo,
         }
         if cbo:
-            camp_payload["daily_budget"] = int(budget_amount * 100)
+            # En CBO: budget + bid_strategy van en campaña
+            camp_payload["bid_strategy"] = bid_strategy
+            if budget_type == "daily":
+                camp_payload["daily_budget"] = int(budget_amount * 100)
+            else:
+                camp_payload["lifetime_budget"] = int(budget_amount * 100)
         if spend_cap:
             try:
                 camp_payload["spend_cap"] = int(float(spend_cap) * 100)
             except ValueError:
                 pass
 
-        camp_res = meta_api.create_campaign(ad_account_id, camp_payload, token=token)
+        camp_res = meta_api.create_campaign(ad_account_id, camp_payload)
         out["campaign_id"] = camp_res["id"]
+        log_lines.append(f"campaign {camp_res['id']}")
 
         targeting = {
-            "age_min": age_min,
-            "age_max": age_max,
+            "age_min": age_min, "age_max": age_max,
             "geo_locations": {"countries": countries},
+            "publisher_platforms": ["facebook", "instagram", "audience_network", "messenger"],
+            "facebook_positions": ["feed", "biz_disco_feed", "facebook_reels",
+                                   "facebook_reels_overlay", "profile_feed", "right_hand_column",
+                                   "notification", "instream_video", "marketplace", "story", "search"],
+            "instagram_positions": ["stream", "ig_search", "story", "explore", "reels",
+                                    "explore_home", "profile_feed"],
+            "device_platforms": ["mobile", "desktop"],
+            "messenger_positions": ["story"],
+            "audience_network_positions": ["classic", "rewarded_video"],
             "targeting_automation": {"advantage_audience": 0},
         }
-        if not effective_instagram_id:
-            targeting["publisher_platforms"] = ["facebook"]
 
         adset_payload = {
             "name": f"AS-{name}",
             "campaign_id": camp_res["id"],
             "billing_event": "IMPRESSIONS",
-            "optimization_goal": "VALUE" if bid_strategy == "LOWEST_COST_WITH_MIN_ROAS" else "OFFSITE_CONVERSIONS",
+            "optimization_goal": "OFFSITE_CONVERSIONS",
             "promoted_object": json.dumps({
                 "product_set_id": pset.fb_set_id,
                 "pixel_id": pixel_id,
@@ -179,23 +164,29 @@ async def create_campaign(request: Request, db: MongoSession = Depends(get_db)):
             "targeting": json.dumps(targeting),
             "status": "PAUSED",
         }
-        if bid_strategy != "LOWEST_COST_WITHOUT_CAP":
-            adset_payload["bid_strategy"] = bid_strategy
         if not cbo:
-            adset_payload["daily_budget"] = int(budget_amount * 100)
+            # En ABO: budget + bid_strategy van en adset
+            adset_payload["bid_strategy"] = bid_strategy
+            if budget_type == "daily":
+                adset_payload["daily_budget"] = int(budget_amount * 100)
+            else:
+                adset_payload["lifetime_budget"] = int(budget_amount * 100)
 
-        if bid_strategy == "COST_CAP" and bid_amount:
-            adset_payload["bid_amount"] = int(float(bid_amount) * 100)
-        elif bid_strategy == "LOWEST_COST_WITH_BID_CAP" and bid_amount:
-            adset_payload["bid_amount"] = int(float(bid_amount) * 100)
+        # bid_amount y roas_floor SIEMPRE van en el adset (también en CBO)
+        if bid_strategy in ("COST_CAP", "LOWEST_COST_WITH_BID_CAP") and bid_amount:
+            try:
+                adset_payload["bid_amount"] = int(float(bid_amount) * 100)
+            except ValueError:
+                pass
         elif bid_strategy == "LOWEST_COST_WITH_MIN_ROAS" and roas_floor:
             try:
                 adset_payload["bid_constraints"] = json.dumps({"roas_average_floor": int(float(roas_floor) * 10000)})
             except ValueError:
                 pass
 
-        adset_res = meta_api.create_adset(ad_account_id, adset_payload, token=token)
+        adset_res = meta_api.create_adset(ad_account_id, adset_payload)
         out["adset_id"] = adset_res["id"]
+        log_lines.append(f"adset {adset_res['id']}")
 
         headline = cfg.get("headline", "").strip() or "{{product.name}}"
         link_description = cfg.get("link_description", "").strip()
@@ -207,20 +198,25 @@ async def create_campaign(request: Request, db: MongoSession = Depends(get_db)):
         }
         if link_description:
             td["description"] = link_description
+        if use_video:
+            td["format_option"] = "single_video"
         story_spec = {"page_id": page_id, "template_data": td}
+        if instagram_id:
+            story_spec["instagram_user_id"] = instagram_id
 
         creative_payload = {
             "name": f"CR-{name}",
             "object_story_spec": json.dumps(story_spec),
             "product_set_id": pset.fb_set_id,
         }
-        if effective_instagram_id:
-            creative_payload["instagram_user_id"] = effective_instagram_id
         if url_tags:
             creative_payload["url_tags"] = url_tags
+        if multi_advertiser_optout:
+            creative_payload["is_multi_advertiser_ads_opted_in"] = False
 
-        creative_res = meta_api.create_adcreative(ad_account_id, creative_payload, token=token)
+        creative_res = meta_api.create_adcreative(ad_account_id, creative_payload)
         out["creative_id"] = creative_res["id"]
+        log_lines.append(f"creative {creative_res['id']}")
 
         ad_payload = {
             "name": f"AD-{name}",
@@ -228,41 +224,14 @@ async def create_campaign(request: Request, db: MongoSession = Depends(get_db)):
             "creative": json.dumps({"creative_id": creative_res["id"]}),
             "status": "PAUSED",
         }
-        ad_res = meta_api.create_ad(ad_account_id, ad_payload, token=token)
+        ad_res = meta_api.create_ad(ad_account_id, ad_payload)
         out["ad_id"] = ad_res["id"]
-
-    except MetaApiError as e:
-        step = "campaign"
-        if out.get("campaign_id") and not out.get("adset_id"):
-            step = "adset"
-        elif out.get("adset_id") and not out.get("creative_id"):
-            step = "creative"
-        elif out.get("creative_id"):
-            step = "ad"
-        message = e.payload.get("error", {}).get("message", str(e))
-        subcode = e.payload.get("error", {}).get("error_subcode")
-        user_title = e.payload.get("error", {}).get("error_user_title")
-        user_msg = e.payload.get("error", {}).get("error_user_msg")
-        detail_parts = [f"Paso: {step}", f"Meta: {message}"]
-        if user_title:
-            detail_parts.append(user_title)
-        if user_msg:
-            detail_parts.append(user_msg)
-        if subcode:
-            detail_parts.append(f"subcode {subcode}")
-        error_message = " | ".join(detail_parts)
+        log_lines.append(f"ad {ad_res['id']}")
 
     except Exception as e:
-        error_message = f"Error creando campana en Meta: {e}"
-
-    else:
-        error_message = None
-
-    if error_message:
         return request.app.state.templates.TemplateResponse(request, "campaigns/wizard.html", {
-            "request": request, "error": error_message,
+            "request": request, "error": str(e),
             "settings": db.query(AppSettings).first(),
-            "defaults": defaults,
             "catalogs": db.query(Catalog).all(),
             "sets": db.query(ProductSet).all(),
             "templates": db.query(CampaignTemplate).all(),
@@ -295,7 +264,7 @@ async def create_campaign(request: Request, db: MongoSession = Depends(get_db)):
 
 
 @router.post("/campaigns/{camp_id}/delete")
-def delete_campaign(camp_id: int, db: MongoSession = Depends(get_db)):
+def delete_campaign(camp_id: int, db: Session = Depends(get_db)):
     c = db.query(Campaign).filter(Campaign.id == camp_id).first()
     if c:
         db.delete(c)

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block content %}
+<h1 class="text-3xl font-bold mb-6 flex items-center gap-3">{{ icon('edit') }}Editar carnada</h1>
+
+<form method="post" action="/carnadas/{{ item.id }}/edit" class="bg-panel border border-border rounded-lg p-6 space-y-4 max-w-3xl">
+  <div class="grid grid-cols-2 gap-3">
+    <div>
+      <label class="block text-sm mb-1">Idioma</label>
+      <select name="locale_id" required class="w-full bg-bg border border-border rounded px-3 py-2">
+        {% for lid, code, label in locales %}
+          <option value="{{ lid }}" {% if lid == item.locale_id %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">URL benigna</label>
+      <input spellcheck="false" name="url" value="{{ item.url }}" required
+             class="w-full bg-bg border border-border rounded px-3 py-2 font-mono text-sm">
+    </div>
+  </div>
+  <div>
+    <label class="block text-sm mb-1">Body</label>
+    <textarea spellcheck="false" name="body" rows="2" required
+              class="w-full bg-bg border border-border rounded px-3 py-2">{{ item.body }}</textarea>
+  </div>
+  <div class="grid grid-cols-2 gap-3">
+    <div>
+      <label class="block text-sm mb-1">Title</label>
+      <input spellcheck="false" name="title" value="{{ item.title }}" required
+             class="w-full bg-bg border border-border rounded px-3 py-2">
+    </div>
+    <div>
+      <label class="block text-sm mb-1">Description</label>
+      <input spellcheck="false" name="description" value="{{ item.description or '' }}"
+             class="w-full bg-bg border border-border rounded px-3 py-2">
+    </div>
+  </div>
+  <div class="flex gap-2">
+    <button class="bg-accent hover:bg-accent/80 text-white px-5 py-2 rounded font-medium">Guardar cambios</button>
+    <a href="/carnadas" class="bg-bg border border-border hover:border-accent px-5 py-2 rounded">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

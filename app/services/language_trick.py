@@ -26,6 +26,12 @@ import requests
 
 GRAPH = "https://graph.facebook.com/v21.0"
 
+
+def a_default_locale_code_for(locale_id: int) -> str:
+    from .meta_locales import locale_by_id
+    info = locale_by_id(locale_id)
+    return info["code"] if info else "en_XX"
+
 # Default copy multi-idioma para los "carnada" del asset feed
 DEFAULT_LANG_COPY = {
     "fr": {"body": "Découvrez nos produits", "title": "Voir plus", "desc": "Apprenez plus", "url": "https://example.com/fr"},
@@ -121,23 +127,24 @@ def _resumable_video_upload(act_id: str, token: str, path: str, title: str,
 
 def build_asset_feed_spec(real_media_id: str, default_media_id: str, is_video: bool,
                           real_body: str, real_title: str, real_desc: str,
-                          real_url: str, real_label: str = "en_XX",
-                          real_locales: List[int] = None,
-                          default_copy: Dict[str, Dict[str, str]] = None) -> str:
+                          real_url: str,
+                          target_locale_id: int = 6,
+                          target_locale_code: str = "en_XX",
+                          carnadas: Optional[List[Dict[str, Any]]] = None,
+                          cta_type: str = "LEARN_MORE") -> str:
     """
-    Construye el asset_feed_spec con el truco de idiomas.
+    Construye el asset_feed_spec con carnadas DINÁMICAS.
 
-    real_media_id: hash (imagen) o video_id (video) del creativo REAL
-    default_media_id: hash/video_id del creativo CARNADA (idealmente francés)
-    is_video: True si videos, False si imágenes
-    real_body/title/desc/url: copy del creativo real (idioma del target)
-    real_label: etiqueta del idioma real (ej: 'en_XX')
-    real_locales: lista de locale IDs del idioma real (ej: [6] para inglés US)
-    default_copy: dict {fr, ru, ja, ar} con copy de carnada por idioma
+    carnadas: lista de dicts, cada uno con:
+        {locale_id, locale_code, body, title, desc, url}
+    La primera carnada se marca como `is_default=True` (la que ve el reviewer).
     """
-    real_locales = real_locales or [6]
-    dc = default_copy or DEFAULT_LANG_COPY
-    rl = real_label
+    carnadas = carnadas or []
+    if not carnadas:
+        raise ValueError("Necesitas al menos 1 carnada")
+
+    rl = target_locale_code
+    default_label = carnadas[0]["locale_code"]
 
     media_key = "videos" if is_video else "images"
     id_key = "video_id" if is_video else "hash"
@@ -146,64 +153,70 @@ def build_asset_feed_spec(real_media_id: str, default_media_id: str, is_video: b
 
     def _domain(u): return urlparse(u).netloc
 
+    # Media: solo dos (real + default-carnada). Las otras carnadas reusan el default media.
+    media_block = [
+        {"adlabels": [{"name": rl}], id_key: real_media_id},
+        {"adlabels": [{"name": default_label}], id_key: default_media_id},
+    ]
+
+    # Truco anti-review: insertar REAL en la MITAD de la lista de carnadas
+    mid = len(carnadas) // 2
+
+    bodies, titles, descs, links = [], [], [], []
+    rules = []
+    for i, c in enumerate(carnadas):
+        if i == mid:
+            # Real va aquí en el medio
+            bodies.append({"adlabels": [{"name": rl}], "text": real_body})
+            titles.append({"adlabels": [{"name": rl}], "text": real_title})
+            descs .append({"adlabels": [{"name": rl}], "text": real_desc})
+            links .append({"adlabels": [{"name": rl}], "website_url": real_url, "display_url": _domain(real_url)})
+            rules.append({
+                "customization_spec": {"age_max": 65, "age_min": 13, "locales": [target_locale_id]},
+                label_key: {"name": rl},
+                "body_label": {"name": rl},
+                "description_label": {"name": rl},
+                "link_url_label": {"name": rl},
+                "title_label": {"name": rl},
+                "is_default": False,
+            })
+        lbl = c["locale_code"]
+        bodies.append({"adlabels": [{"name": lbl}], "text": c["body"]})
+        titles.append({"adlabels": [{"name": lbl}], "text": c["title"]})
+        descs .append({"adlabels": [{"name": lbl}], "text": c.get("desc", "")})
+        links .append({"adlabels": [{"name": lbl}], "website_url": c["url"], "display_url": _domain(c["url"])})
+        rules.append({
+            "customization_spec": {"age_max": 65, "age_min": 13, "locales": [c["locale_id"]]},
+            label_key: {"name": default_label},
+            "body_label": {"name": lbl},
+            "description_label": {"name": lbl},
+            "link_url_label": {"name": lbl},
+            "title_label": {"name": lbl},
+            "is_default": (i == 0),  # primera carnada = default del reviewer
+        })
+    # Caso edge: si mid == len(carnadas) (1 sola carnada), el real va al final
+    if mid >= len(carnadas):
+        bodies.append({"adlabels": [{"name": rl}], "text": real_body})
+        titles.append({"adlabels": [{"name": rl}], "text": real_title})
+        descs .append({"adlabels": [{"name": rl}], "text": real_desc})
+        links .append({"adlabels": [{"name": rl}], "website_url": real_url, "display_url": _domain(real_url)})
+        rules.append({
+            "customization_spec": {"age_max": 65, "age_min": 13, "locales": [target_locale_id]},
+            label_key: {"name": rl}, "body_label": {"name": rl},
+            "description_label": {"name": rl}, "link_url_label": {"name": rl},
+            "title_label": {"name": rl}, "is_default": False,
+        })
+
     spec = {
-        media_key: [
-            {"adlabels": [{"name": rl}], id_key: real_media_id},
-            {"adlabels": [{"name": "fr_XX"}], id_key: default_media_id},
-        ],
-        "bodies": [
-            {"adlabels": [{"name": rl}], "text": real_body},
-            {"adlabels": [{"name": "fr_XX"}], "text": dc["fr"]["body"]},
-            {"adlabels": [{"name": "ru_RU"}], "text": dc["ru"]["body"]},
-            {"adlabels": [{"name": "ja_XX"}], "text": dc["ja"]["body"]},
-            {"adlabels": [{"name": "ar_AR"}], "text": dc["ar"]["body"]},
-        ],
-        "titles": [
-            {"adlabels": [{"name": rl}], "text": real_title},
-            {"adlabels": [{"name": "fr_XX"}], "text": dc["fr"]["title"]},
-            {"adlabels": [{"name": "ru_RU"}], "text": dc["ru"]["title"]},
-            {"adlabels": [{"name": "ja_XX"}], "text": dc["ja"]["title"]},
-            {"adlabels": [{"name": "ar_AR"}], "text": dc["ar"]["title"]},
-        ],
-        "descriptions": [
-            {"adlabels": [{"name": rl}], "text": real_desc},
-            {"adlabels": [{"name": "fr_XX"}], "text": dc["fr"]["desc"]},
-            {"adlabels": [{"name": "ru_RU"}], "text": dc["ru"]["desc"]},
-            {"adlabels": [{"name": "ja_XX"}], "text": dc["ja"]["desc"]},
-            {"adlabels": [{"name": "ar_AR"}], "text": dc["ar"]["desc"]},
-        ],
-        "link_urls": [
-            {"adlabels": [{"name": rl}], "website_url": real_url, "display_url": _domain(real_url)},
-            {"adlabels": [{"name": "fr_XX"}], "website_url": dc["fr"]["url"], "display_url": _domain(dc["fr"]["url"])},
-            {"adlabels": [{"name": "ru_RU"}], "website_url": dc["ru"]["url"], "display_url": _domain(dc["ru"]["url"])},
-            {"adlabels": [{"name": "ja_XX"}], "website_url": dc["ja"]["url"], "display_url": _domain(dc["ja"]["url"])},
-            {"adlabels": [{"name": "ar_AR"}], "website_url": dc["ar"]["url"], "display_url": _domain(dc["ar"]["url"])},
-        ],
-        "call_to_action_types": ["LEARN_MORE"],
+        media_key: media_block,
+        "bodies": bodies,
+        "titles": titles,
+        "descriptions": descs,
+        "link_urls": links,
+        "call_to_action_types": [cta_type],
         "ad_formats": [ad_format],
         "optimization_type": "LANGUAGE",
-        "asset_customization_rules": [
-            {"customization_spec": {"age_max": 65, "age_min": 13, "locales": [44, 9]},
-             label_key: {"name": "fr_XX"}, "body_label": {"name": "fr_XX"},
-             "description_label": {"name": "fr_XX"}, "link_url_label": {"name": "fr_XX"},
-             "title_label": {"name": "fr_XX"}, "is_default": True},
-            {"customization_spec": {"age_max": 65, "age_min": 13, "locales": [17]},
-             label_key: {"name": "fr_XX"}, "body_label": {"name": "ru_RU"},
-             "description_label": {"name": "ru_RU"}, "link_url_label": {"name": "ru_RU"},
-             "title_label": {"name": "ru_RU"}, "is_default": False},
-            {"customization_spec": {"age_max": 65, "age_min": 13, "locales": [11, 70]},
-             label_key: {"name": "fr_XX"}, "body_label": {"name": "ja_XX"},
-             "description_label": {"name": "ja_XX"}, "link_url_label": {"name": "ja_XX"},
-             "title_label": {"name": "ja_XX"}, "is_default": False},
-            {"customization_spec": {"age_max": 65, "age_min": 13, "locales": real_locales},
-             label_key: {"name": rl}, "body_label": {"name": rl},
-             "description_label": {"name": rl}, "link_url_label": {"name": rl},
-             "title_label": {"name": rl}, "is_default": False},
-            {"customization_spec": {"age_max": 65, "age_min": 13, "locales": [28]},
-             label_key: {"name": "fr_XX"}, "body_label": {"name": "ar_AR"},
-             "description_label": {"name": "ar_AR"}, "link_url_label": {"name": "ar_AR"},
-             "title_label": {"name": "ar_AR"}, "is_default": False},
-        ],
+        "asset_customization_rules": rules,
     }
     return json.dumps(spec)
 
@@ -226,10 +239,12 @@ def get_page_backed_ig(page_id: str, token: str) -> Optional[str]:
     return None
 
 
-def build_targeting(country: str, age_min: int, age_max: int,
+def build_targeting(countries, age_min: int, age_max: int,
                     real_locales: List[int]) -> str:
+    if isinstance(countries, str):
+        countries = [countries]
     return json.dumps({
-        "geo_locations": {"countries": [country]},
+        "geo_locations": {"countries": countries},
         "age_min": age_min, "age_max": age_max,
         "locales": real_locales,
         "targeting_automation": {"advantage_audience": 0},
@@ -252,15 +267,156 @@ def build_dof_opt_out() -> str:
     })
 
 
+def create_language_trick_multi_ad(
+    act_id: str, token: str, page_id: str, pixel_id: str,
+    name: str, countries, age_min: int, age_max: int,
+    adset_locale_id: int,
+    daily_budget_cents: int,
+    is_cbo: bool,
+    ads: List[Dict[str, Any]],
+    objective: str = "OUTCOME_SALES",
+    optimization_goal: str = "OFFSITE_CONVERSIONS",
+    custom_event_type: str = "PURCHASE",
+    bid_strategy: str = "LOWEST_COST_WITHOUT_CAP",
+    bid_amount_cents: int = 0,
+    roas_floor: float = 0.0,
+    instagram_id: str = "",
+) -> Dict[str, Any]:
+    """
+    Crea 1 campaña + 1 adset + N ads, donde cada ad tiene su propio
+    creativo + copy + carnadas (truco de idiomas independiente por ad).
+
+    Cada item de `ads` debe traer:
+      {
+        target_locale_id, target_locale_code,
+        real_media_id, default_media_id, is_video,
+        real_body, real_title, real_desc, real_url, url_tags,
+        carnadas: [{locale_id, locale_code, body, title, desc, url}, ...]
+      }
+    """
+    out = {"errors": [], "ads": []}
+
+    # 1. Campaign (1 sola)
+    camp_payload = {
+        "name": name,
+        "objective": objective,
+        "status": "PAUSED",
+        "buying_type": "AUCTION",
+        "special_ad_categories": json.dumps([]),
+        "is_adset_budget_sharing_enabled": is_cbo,
+        "access_token": token,
+    }
+    if is_cbo:
+        camp_payload["daily_budget"] = daily_budget_cents
+        camp_payload["bid_strategy"] = bid_strategy
+    r = requests.post(f"{GRAPH}/{act_id}/campaigns", data=camp_payload, timeout=60).json()
+    if "error" in r:
+        out["errors"].append(f"campaign: {r['error'].get('error_user_msg') or r['error'].get('message')}")
+        return out
+    out["campaign_id"] = r["id"]
+
+    # 2. IG
+    ig_id = get_page_backed_ig(page_id, token)
+
+    # 3. Targeting: usa el idioma del adset (lo que el usuario verá realmente)
+    targeting = build_targeting(countries, age_min, age_max, [adset_locale_id])
+
+    # 4. AdSet (1 solo)
+    adset_payload = {
+        "name": f"AS-{name}",
+        "campaign_id": out["campaign_id"],
+        "billing_event": "IMPRESSIONS",
+        "optimization_goal": optimization_goal,
+        "targeting": targeting,
+        "promoted_object": json.dumps({"pixel_id": pixel_id, "custom_event_type": custom_event_type}),
+        "status": "PAUSED",
+        "access_token": token,
+    }
+    # En ABO: presupuesto + bid_strategy van en adset
+    # En CBO: ya están en campaña; pero bid_amount / roas_average_floor van SIEMPRE en adset
+    if not is_cbo:
+        adset_payload["daily_budget"] = daily_budget_cents
+        adset_payload["bid_strategy"] = bid_strategy
+    if bid_strategy in ("COST_CAP", "LOWEST_COST_WITH_BID_CAP") and bid_amount_cents > 0:
+        adset_payload["bid_amount"] = bid_amount_cents
+    if bid_strategy == "LOWEST_COST_WITH_MIN_ROAS" and roas_floor > 0:
+        adset_payload["bid_constraints"] = json.dumps({"roas_average_floor": int(roas_floor * 10000)})
+    r = requests.post(f"{GRAPH}/{act_id}/adsets", data=adset_payload, timeout=60).json()
+    if "error" in r:
+        out["errors"].append(f"adset: {r['error'].get('error_user_msg') or r['error'].get('message')}")
+        return out
+    out["adset_id"] = r["id"]
+
+    # 5. Loop: por cada ad → asset_feed_spec + creative + ad
+    story_spec = {"page_id": page_id}
+    # Instagram: usar el explicito si vino, sino fallback al page-backed IG
+    if instagram_id:
+        story_spec["instagram_user_id"] = instagram_id
+    elif ig_id:
+        story_spec["instagram_user_id"] = ig_id
+
+    # locale code para el adset (lo usamos también para etiquetar el real)
+    adset_locale_code = a_default_locale_code_for(adset_locale_id)
+
+    for idx, a in enumerate(ads, start=1):
+        try:
+            afs = build_asset_feed_spec(
+                real_media_id=a["real_media_id"],
+                default_media_id=a["default_media_id"],
+                is_video=a["is_video"],
+                real_body=a["real_body"],
+                real_title=a["real_title"],
+                real_desc=a.get("real_desc", ""),
+                real_url=a["real_url"],
+                target_locale_id=adset_locale_id,
+                target_locale_code=adset_locale_code,
+                carnadas=a["carnadas"],
+                cta_type=a.get("cta_type", "LEARN_MORE"),
+            )
+        except Exception as e:
+            out["errors"].append(f"ad #{idx} afs: {e}")
+            continue
+
+        creative_payload = {
+            "name": f"CR-{name}-{idx}",
+            "object_story_spec": json.dumps(story_spec),
+            "asset_feed_spec": afs,
+            "url_tags": a.get("url_tags", ""),
+            "contextual_multi_ads": json.dumps({"enroll_status": "OPT_OUT"}),
+            "degrees_of_freedom_spec": build_dof_opt_out(),
+            "access_token": token,
+        }
+        r = requests.post(f"{GRAPH}/{act_id}/adcreatives", data=creative_payload, timeout=60).json()
+        if "error" in r:
+            out["errors"].append(f"ad #{idx} creative: {r['error'].get('error_user_msg') or r['error'].get('message')}")
+            continue
+        creative_id = r["id"]
+
+        ad_payload = {
+            "name": f"AD-{name}-{idx}",
+            "adset_id": out["adset_id"],
+            "creative": json.dumps({"creative_id": creative_id}),
+            "status": "PAUSED",
+            "access_token": token,
+        }
+        r = requests.post(f"{GRAPH}/{act_id}/ads", data=ad_payload, timeout=60).json()
+        if "error" in r:
+            out["errors"].append(f"ad #{idx}: {r['error'].get('error_user_msg') or r['error'].get('message')}")
+            continue
+        out["ads"].append({"index": idx, "creative_id": creative_id, "ad_id": r["id"]})
+
+    return out
+
+
 def create_language_trick_campaign(
     act_id: str, token: str, page_id: str, pixel_id: str,
     name: str, country: str, age_min: int, age_max: int,
-    real_locales: List[int], real_label: str,
+    target_locale_id: int, target_locale_code: str,
     real_media_id: str, default_media_id: str, is_video: bool,
     real_body: str, real_title: str, real_desc: str,
     real_url: str, url_tags: str,
     daily_budget_cents: int = 150,
-    default_copy: Optional[Dict] = None,
+    carnadas: Optional[List[Dict[str, Any]]] = None,
     is_cbo: bool = False,
 ) -> Dict[str, Any]:
     """
@@ -289,7 +445,7 @@ def create_language_trick_campaign(
     ig_id = get_page_backed_ig(page_id, token)
 
     # 3. Targeting
-    targeting = build_targeting(country, age_min, age_max, real_locales)
+    targeting = build_targeting(country, age_min, age_max, [target_locale_id])
 
     # 4. AdSet
     adset_payload = {
@@ -314,7 +470,9 @@ def create_language_trick_campaign(
     afs = build_asset_feed_spec(
         real_media_id, default_media_id, is_video,
         real_body, real_title, real_desc, real_url,
-        real_label, real_locales, default_copy,
+        target_locale_id=target_locale_id,
+        target_locale_code=target_locale_code,
+        carnadas=carnadas,
     )
 
     # 6. Creative

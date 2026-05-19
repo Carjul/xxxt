@@ -25,29 +25,11 @@ from .routers import language_routes
 app.include_router(language_routes.router)
 ```
 
-### 2. `app/database.py` — extender la migración
+### 2. `app/database.py`
 
-Si tienes una función `migrate_db()`, agregar al final:
+La app actual usa MongoDB. No hay migraciones SQL que ejecutar en runtime.
 
-```python
-def migrate_db():
-    # ... migrations existentes ...
-    from .services.language_models import migrate_extras
-    migrate_extras(engine)
-```
-
-Si NO tienes `migrate_db()`, agregar al startup en `main.py`:
-
-```python
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    from .services.language_models import migrate_extras
-    migrate_extras(engine)
-    # ... resto ...
-```
-
-Esto agrega tablas `media_assets` y `copy_bundles`, y columnas a `campaigns`:
+Esto agrega colecciones `media_assets` y `copy_bundles`, y campos en `campaigns`:
 - `campaign_type` (catalog / language / normal)
 - `media_asset_id`, `default_media_id`, `copy_bundle_id`
 

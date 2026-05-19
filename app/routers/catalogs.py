@@ -1,10 +1,10 @@
 import secrets
 from fastapi import APIRouter, Depends, Request, Form, HTTPException
 from fastapi.responses import RedirectResponse
+from typing import Any as Session
 
 from .. import meta_api
-from ..database import MongoSession, get_db
-from ..meta_connections import get_active_token, get_effective_defaults
+from ..database import get_db
 from ..models import Catalog, AppSettings
 from ..config import PUBLIC_BASE_URL
 
@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 @router.get("/catalogs")
-def list_catalogs(request: Request, db: MongoSession = Depends(get_db)):
+def list_catalogs(request: Request, db: Session = Depends(get_db)):
     catalogs = db.query(Catalog).order_by(Catalog.created_at.desc()).all()
     return request.app.state.templates.TemplateResponse(request, "catalogs/list.html", {
         "request": request, "catalogs": catalogs,
@@ -21,49 +21,40 @@ def list_catalogs(request: Request, db: MongoSession = Depends(get_db)):
 
 
 @router.get("/catalogs/new")
-def new_catalog(request: Request, db: MongoSession = Depends(get_db)):
+def new_catalog(request: Request, db: Session = Depends(get_db)):
     s = db.query(AppSettings).first()
-    defaults = get_effective_defaults(db)
     return request.app.state.templates.TemplateResponse(request, "catalogs/create.html", {
         "request": request, "settings": s,
-        "defaults": defaults,
     })
 
 
 @router.post("/catalogs")
 def create_catalog(
     request: Request,
-    db: MongoSession = Depends(get_db),
+    db: Session = Depends(get_db),
     name: str = Form(...),
     business_id: str = Form(...),
     pixel_id: str = Form(""),
     sync_to_meta: str = Form(""),
-): 
+):
     feed_slug = secrets.token_urlsafe(8)
-    token = get_active_token(db)
 
     fb_catalog_id = ""
     fb_feed_id = None
     error = None
 
     if sync_to_meta == "yes":
-        if not token:
-            return request.app.state.templates.TemplateResponse(request, "catalogs/create.html", {
-                "request": request, "settings": db.query(AppSettings).first(),
-                "error": "No hay una conexion Meta activa",
-                "form": {"name": name, "business_id": business_id, "pixel_id": pixel_id},
-            }, status_code=400)
         try:
-            res = meta_api.create_catalog(business_id, name, token=token)
+            res = meta_api.create_catalog(business_id, name)
             fb_catalog_id = res["id"]
             if pixel_id:
                 try:
-                    meta_api.attach_pixel_to_catalog(fb_catalog_id, pixel_id, token=token)
+                    meta_api.attach_pixel_to_catalog(fb_catalog_id, pixel_id)
                 except Exception as e:
                     error = f"Catálogo creado pero falló asociar pixel: {e}"
             csv_url = f"{PUBLIC_BASE_URL}/feed/{feed_slug}.csv"
             try:
-                feed_res = meta_api.create_feed(fb_catalog_id, f"Feed {name}", csv_url, token=token)
+                feed_res = meta_api.create_feed(fb_catalog_id, f"Feed {name}", csv_url)
                 fb_feed_id = feed_res.get("id")
             except Exception as e:
                 error = (error + " | " if error else "") + f"Feed no creado: {e}"
@@ -91,7 +82,7 @@ def create_catalog(
 
 
 @router.post("/catalogs/{cat_id}/delete")
-def delete_catalog(cat_id: int, db: MongoSession = Depends(get_db)):
+def delete_catalog(cat_id: int, db: Session = Depends(get_db)):
     cat = db.query(Catalog).filter(Catalog.id == cat_id).first()
     if not cat:
         raise HTTPException(404)

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block content %}
+<h1 class="text-3xl font-bold mb-2 flex items-center gap-3">{{ icon('rocket') }}Nueva campaña</h1>
+<p class="text-sm text-muted mb-6">¿Qué tipo de campaña quieres montar?</p>
+
+<div class="grid grid-cols-3 gap-4 max-w-5xl">
+
+  <a href="/campaigns/new" class="block bg-panel border border-border hover:border-accent rounded-lg p-6 transition group">
+    <div class="flex items-center gap-3 mb-3">
+      <i data-lucide="package" class="lucide-icon" style="color:#F59E0B"></i>
+      <h2 class="font-bold text-lg">Truco de Catálogo</h2>
+    </div>
+    <p class="text-sm text-muted mb-3">Advantage+ Catalog Ads (DPA). Usa producto in_stock/out_of_stock para esconder el creativo agresivo detrás del compliance.</p>
+    <div class="text-xs text-accent group-hover:underline">Configurar →</div>
+  </a>
+
+  <a href="/campaigns/new-language" class="block bg-panel border border-border hover:border-accent rounded-lg p-6 transition group">
+    <div class="flex items-center gap-3 mb-3">
+      <i data-lucide="languages" class="lucide-icon" style="color:#14B8A6"></i>
+      <h2 class="font-bold text-lg">Truco de Idiomas</h2>
+    </div>
+    <p class="text-sm text-muted mb-3">Asset feed multi-locale. El reviewer ve copy benigno en su idioma; el usuario target ve el creativo real (sucio). 1 campaña → 1 adset → N ads.</p>
+    <div class="text-xs text-accent group-hover:underline">Configurar →</div>
+  </a>
+
+  <a href="/campaigns/new-normal" class="block bg-panel border border-border hover:border-accent rounded-lg p-6 transition group">
+    <div class="flex items-center gap-3 mb-3">
+      <i data-lucide="circle" class="lucide-icon" style="color:#3B82F6"></i>
+      <h2 class="font-bold text-lg">Normal</h2>
+    </div>
+    <p class="text-sm text-muted mb-3">Campaña estándar sin truco. CBO/ABO con todas las bid strategies (volumen, cost cap, bid cap, ROAS). N anuncios con creativo simple + copy libre.</p>
+    <div class="text-xs text-accent group-hover:underline">Configurar →</div>
+  </a>
+
+</div>
+{% endblock %}

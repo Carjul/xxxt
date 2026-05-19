@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block content %}
+<h1 class="text-3xl font-bold mb-6 flex items-center gap-3">{{ icon('edit') }}Editar creativo</h1>
+
+<form method="post" action="/media/{{ item.id }}/edit" class="bg-panel border border-border rounded-lg p-6 space-y-4 max-w-3xl">
+  <div class="grid grid-cols-2 gap-3">
+    <div>
+      <label class="block text-sm mb-1">Nombre</label>
+      <input spellcheck="false" name="name" value="{{ item.name }}" required
+             class="w-full bg-bg border border-border rounded px-3 py-2">
+    </div>
+    <div>
+      <label class="block text-sm mb-1">Tipo</label>
+      <select name="type" class="w-full bg-bg border border-border rounded px-3 py-2">
+        <option value="image" {% if item.type == 'image' %}selected{% endif %}>Imagen</option>
+        <option value="video" {% if item.type == 'video' %}selected{% endif %}>Video</option>
+      </select>
+    </div>
+  </div>
+  <div>
+    <label class="block text-sm mb-1">URL del creativo</label>
+    <input spellcheck="false" name="public_url" value="{{ item.public_url }}" required
+           class="w-full bg-bg border border-border rounded px-3 py-2 font-mono text-sm">
+  </div>
+  <div>
+    <label class="flex items-center gap-2 cursor-pointer">
+      <input type="checkbox" name="is_default" value="yes" class="w-4 h-4" {% if item.is_default %}checked{% endif %}>
+      <span>Es <strong>carnada limpia</strong> (lifestyle/benigno) — lo verá el reviewer</span>
+    </label>
+  </div>
+  <div>
+    <label class="block text-sm mb-1">Notas</label>
+    <input spellcheck="false" name="notes" value="{{ item.notes or '' }}"
+           class="w-full bg-bg border border-border rounded px-3 py-2">
+  </div>
+  {% if item.uploaded_to_meta %}
+  <div class="text-xs text-muted">Ya está subido a Meta como <code class="text-green-400">{{ item.meta_id }}</code> en <code>{{ item.ad_account_id }}</code>. Si cambias la URL tendrás que volver a subirlo.</div>
+  {% endif %}
+  <div class="flex gap-2">
+    <button class="bg-accent hover:bg-accent/80 text-white px-5 py-2 rounded font-medium">Guardar cambios</button>
+    <a href="/media" class="bg-bg border border-border hover:border-accent px-5 py-2 rounded">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

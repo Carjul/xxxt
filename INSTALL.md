@@ -44,10 +44,17 @@ Guía para el programador que va a deployar este dashboard a producción.
 - **Cron interval:** controlado por `TRICK_RUNNER_INTERVAL` (default 3600s = 1h). Cambiar en env si se necesita.
 - **Rate limits Meta:** el wrapper hace retry exponencial en 429 / códigos transitorios.
 
-## Variables Mongo recomendadas
+## Migrar a MongoDB
 
-1. `MONGODB_URI`: string de conexion, por ejemplo `mongodb+srv://...`
-2. `MONGODB_DB_NAME`: nombre de la base, por ejemplo `fb_catalog_dashboard`
+1. Crear un cluster/base en MongoDB Atlas o tu servidor Mongo.
+2. Ejecutar la migración antes de cambiar el backend:
+   ```bash
+   python scripts/migrate_to_mongo.py --source sqlite:///./data/dashboard.db --mongo-uri "mongodb+srv://USER:PASS@HOST/?retryWrites=true&w=majority"
+   ```
+3. En Render, configurar:
+   - `MONGODB_URI`: connection string de MongoDB
+    - `MONGODB_DB_NAME=fb_catalog_dashboard`
+4. Reiniciar el servicio y revisar `/health` para confirmar `"database_backend":"mongodb"`.
 
 ## Logs
 
@@ -57,11 +64,10 @@ Guía para el programador que va a deployar este dashboard a producción.
 
 ## Health check
 
-El endpoint `/health` retorna `{"status": "ok"}` y se puede usar como healthcheck en Render.
+El endpoint `/health` retorna `{"status": "ok", "database_backend": "..."}` y se puede usar como healthcheck en Render.
 
 ## Backup de la DB
 
 ```bash
-# Ejemplo con mongodump:
-mongodump --uri "$MONGODB_URI" --db "$MONGODB_DB_NAME"
+# Hacer backup con mongodump o desde MongoDB Atlas.
 ```
