@@ -55,6 +55,10 @@ def create_normal_multi_ad(
     roas_floor: float = 0.0,
     instagram_id: str = "",
     url_tags: str = "",
+    adset_name: str = "",
+    locale_ids: Optional[List[int]] = None,
+    start_time: str = "",
+    end_time: str = "",
 ) -> Dict[str, Any]:
     """
     Crea 1 campaña + 1 adset + N ads sin truco.
@@ -86,11 +90,12 @@ def create_normal_multi_ad(
     # 2. IG
     ig_id = instagram_id or _get_page_backed_ig(page_id, token)
 
-    # 3. AdSet
-    targeting = _build_targeting(countries, age_min, age_max, [locale_id])
+    # 3. AdSet — soporta multi-locale (ej: en_US + en_XX + en_GB)
+    locales_for_targeting = locale_ids if locale_ids else [locale_id]
+    targeting = _build_targeting(countries, age_min, age_max, locales_for_targeting)
 
     adset_payload = {
-        "name": f"AS-{name}",
+        "name": (adset_name.strip() if adset_name and adset_name.strip() else f"AS-{name}"),
         "campaign_id": out["campaign_id"],
         "billing_event": "IMPRESSIONS",
         "optimization_goal": optimization_goal,
@@ -99,6 +104,10 @@ def create_normal_multi_ad(
         "status": "PAUSED",
         "access_token": token,
     }
+    if start_time:
+        adset_payload["start_time"] = start_time
+    if end_time:
+        adset_payload["end_time"] = end_time
     if not is_cbo:
         adset_payload["daily_budget"] = daily_budget_cents
         adset_payload["bid_strategy"] = bid_strategy
@@ -134,8 +143,9 @@ def create_normal_multi_ad(
         if ig_id:
             object_story_spec["instagram_user_id"] = ig_id
 
+        custom_ad_name = (a.get("ad_name") or "").strip()
         creative_payload = {
-            "name": f"CR-{name}-{idx}",
+            "name": (f"CR-{custom_ad_name}" if custom_ad_name else f"CR-{name}-{idx}"),
             "object_story_spec": json.dumps(object_story_spec),
             "is_multi_advertiser_ads_opted_in": False,
             "access_token": token,
@@ -150,7 +160,7 @@ def create_normal_multi_ad(
         creative_id = r["id"]
 
         ad_payload = {
-            "name": f"AD-{name}-{idx}",
+            "name": (custom_ad_name if custom_ad_name else f"AD-{name}-{idx}"),
             "adset_id": out["adset_id"],
             "creative": json.dumps({"creative_id": creative_id}),
             "status": "PAUSED",

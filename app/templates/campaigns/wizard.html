@@ -116,6 +116,80 @@
         <input spellcheck="false" name="countries" class="w-full bg-bg border border-border rounded px-3 py-2" value="{{ form.countries if form else 'US' }}" placeholder="US, CO, MX">
       </div>
     </div>
+    <div>
+      <label class="block text-sm font-medium mb-1 flex items-center">Idioma(s) del usuario target <span class="text-xs text-muted ml-2">(opcional)</span>
+        {{ tip("Agrega los idiomas con el botón. Si no agregas ninguno, no filtra por idioma.") }}
+      </label>
+      <div class="locale-picker space-y-2" data-input-name="locale_ids">
+        <div class="locale-chips flex flex-wrap gap-2 min-h-[34px] p-2 bg-bg border border-border rounded"></div>
+        <div class="flex items-center gap-2">
+          <select class="locale-picker-select flex-1 bg-bg border border-border rounded px-3 py-1.5 text-sm">
+            <option value="">— Elige un idioma para agregar —</option>
+            {% if locales %}{% for lid, code, label in locales %}<option value="{{ lid }}" data-label="{{ label }}">{{ label }}</option>{% endfor %}{% endif %}
+          </select>
+          <button type="button" class="locale-add-btn bg-accent hover:bg-accent/80 text-white px-3 py-1.5 rounded text-sm flex items-center gap-1">
+            <span class="text-lg leading-none">+</span> Agregar idioma
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  document.querySelectorAll('.locale-picker').forEach(picker => {
+    const chips = picker.querySelector('.locale-chips');
+    const sel = picker.querySelector('.locale-picker-select');
+    const btn = picker.querySelector('.locale-add-btn');
+    const inputName = picker.dataset.inputName || 'locale_ids';
+    function selectedIds() { return [...chips.querySelectorAll('.locale-chip')].map(c => c.dataset.id); }
+    function addChip(id, label) {
+      if (selectedIds().includes(id)) return;
+      const chip = document.createElement('span');
+      chip.className = 'locale-chip inline-flex items-center gap-1.5 px-2 py-1 rounded bg-accent/20 text-accent text-sm font-medium';
+      chip.dataset.id = id;
+      chip.innerHTML = `${label} <button type="button" class="chip-remove w-4 h-4 inline-flex items-center justify-center rounded-full hover:bg-accent/30 text-xs leading-none">×</button><input type="hidden" name="${inputName}" value="${id}">`;
+      chip.querySelector('.chip-remove').addEventListener('click', () => chip.remove());
+      chips.appendChild(chip);
+    }
+    btn.addEventListener('click', () => {
+      if (!sel.value) return;
+      const opt = sel.options[sel.selectedIndex];
+      addChip(sel.value, opt.dataset.label || opt.text);
+      sel.value = '';
+    });
+  });
+  </script>
+
+  <div class="bg-panel border border-border rounded-lg p-5 space-y-4">
+    <h3 class="font-semibold flex items-center gap-2">{{ icon('edit') }}Nombres + Programación</h3>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Nombre del Ad Set <span class="text-xs text-muted">(opcional)</span>
+          {{ tip("Si lo dejas vacío usa AS-{nombre de campaña}.") }}
+        </label>
+        <input spellcheck="false" name="adset_name" value="{{ form.adset_name if form else '' }}" placeholder="AS-Mi catálogo"
+               class="w-full bg-bg border border-border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Nombre del Anuncio <span class="text-xs text-muted">(opcional)</span>
+          {{ tip("Si lo dejas vacío usa AD-{nombre de campaña}.") }}
+        </label>
+        <input spellcheck="false" name="ad_name" value="{{ form.ad_name if form else '' }}" placeholder="AD-Mi catálogo"
+               class="w-full bg-bg border border-border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Fecha/hora de inicio <span class="text-xs text-muted">(opcional)</span>
+          {{ tip("Si lo dejas vacío, debes activarlo manualmente. Si pones fecha/hora, Meta lo arranca solo a ese momento.") }}
+        </label>
+        <input type="datetime-local" name="start_time" value="{{ form.start_time if form else '' }}"
+               class="w-full bg-bg border border-border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Fecha/hora de fin <span class="text-xs text-muted">(opcional)</span></label>
+        <input type="datetime-local" name="end_time" value="{{ form.end_time if form else '' }}"
+               class="w-full bg-bg border border-border rounded px-3 py-2">
+      </div>
+    </div>
   </div>
 
   <div class="bg-panel border border-border rounded-lg p-5 space-y-4">

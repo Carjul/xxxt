@@ -181,9 +181,20 @@ def edit_media(
     m = db.query(MediaAsset).filter(MediaAsset.id == media_id).first()
     if not m:
         raise HTTPException(404, "No encontrado")
+
+    new_url = public_url.strip()
+    new_type = type if type in ("image", "video") else "image"
+    # Si la URL o el tipo cambiaron y ya estaba subido a Meta → invalidar
+    # para que el usuario pueda volver a subirlo con el nuevo contenido
+    url_changed = (m.public_url or "") != new_url
+    type_changed = (m.type or "image") != new_type
+    if (url_changed or type_changed) and m.uploaded_to_meta:
+        m.uploaded_to_meta = False
+        m.meta_id = None
+
     m.name = name.strip()
-    m.type = type if type in ("image", "video") else "image"
-    m.public_url = public_url.strip()
+    m.type = new_type
+    m.public_url = new_url
     m.notes = notes
     m.is_default = (is_default == "yes")
     db.commit()
@@ -587,6 +598,7 @@ async def post_normal_wizard(request: Request, db: Session = Depends(get_db)):
             "description": form.get(f"ads[{idx}][description]", ""),
             "link": form.get(f"ads[{idx}][link]", ""),
             "cta_type": form.get(f"ads[{idx}][cta_type]", "LEARN_MORE"),
+            "ad_name": form.get(f"ads[{idx}][ad_name]", "").strip(),
         })
 
     if not ads_data:
@@ -598,6 +610,16 @@ async def post_normal_wizard(request: Request, db: Session = Depends(get_db)):
     roas_floor_raw = (form.get("roas_floor") or "").strip()
     roas_floor = float(roas_floor_raw) if roas_floor_raw else 0.0
 
+    # Multi-locale para normal
+    raw_ids_n = form.getlist("locale_id") if hasattr(form, "getlist") else []
+    if not raw_ids_n:
+        raw_ids_n = [form.get("locale_id", "6")]
+    try:
+        locale_ids_n = [int(x) for x in raw_ids_n if str(x).strip().isdigit()]
+    except ValueError:
+        locale_ids_n = [6]
+    primary_locale_n = locale_ids_n[0] if locale_ids_n else 6
+
     from ..services.normal_campaign import create_normal_multi_ad
     result = create_normal_multi_ad(
         act_id=act, token=token,
@@ -606,7 +628,8 @@ async def post_normal_wizard(request: Request, db: Session = Depends(get_db)):
         countries=countries,
         age_min=int(form.get("age_min", "18")),
         age_max=int(form.get("age_max", "65")),
-        locale_id=int(form.get("locale_id", "6")),
+        locale_id=primary_locale_n,
+        locale_ids=locale_ids_n,
         daily_budget_cents=int(float(form.get("daily_budget_usd", "5")) * 100),
         is_cbo=(form.get("cbo_or_abo", "ABO") == "CBO"),
         ads=ads_data,
@@ -618,6 +641,9 @@ async def post_normal_wizard(request: Request, db: Session = Depends(get_db)):
         roas_floor=roas_floor,
         instagram_id=form.get("instagram_id", "").strip(),
         url_tags=form.get("url_tags", ""),
+        adset_name=form.get("adset_name", "").strip(),
+        start_time=form.get("start_time", "").strip(),
+        end_time=form.get("end_time", "").strip(),
     )
     status = 200 if not result.get("errors") else 400
     if status != 200:
@@ -704,6 +730,7 @@ async def post_lang_wizard(request: Request, db: Session = Depends(get_db)):
             "url_tags": form.get("url_tags", ""),
             "carnadas": carnadas,
             "cta_type": form.get(f"ads[{idx}][cta_type]", "LEARN_MORE"),
+            "ad_name": form.get(f"ads[{idx}][ad_name]", "").strip(),
         })
 
     if not ads_data:
@@ -720,6 +747,16 @@ async def post_lang_wizard(request: Request, db: Session = Depends(get_db)):
     roas_floor_raw = (form.get("roas_floor") or "").strip()
     roas_floor = float(roas_floor_raw) if roas_floor_raw else 0.0
 
+    # Multi-locale: el form puede enviar varios adset_locale_id (multiselect)
+    raw_ids = form.getlist("adset_locale_id") if hasattr(form, "getlist") else []
+    if not raw_ids:
+        raw_ids = [form.get("adset_locale_id", "6")]
+    try:
+        adset_locale_ids = [int(x) for x in raw_ids if str(x).strip().isdigit()]
+    except ValueError:
+        adset_locale_ids = [6]
+    primary_locale_id = adset_locale_ids[0] if adset_locale_ids else 6
+
     from ..services.language_trick import create_language_trick_multi_ad
     result = create_language_trick_multi_ad(
         act_id=act,
@@ -730,7 +767,8 @@ async def post_lang_wizard(request: Request, db: Session = Depends(get_db)):
         countries=countries,
         age_min=int(form.get("age_min", "40")),
         age_max=int(form.get("age_max", "65")),
-        adset_locale_id=int(form.get("adset_locale_id", "6")),
+        adset_locale_id=primary_locale_id,
+        adset_locale_ids=adset_locale_ids,
         daily_budget_cents=int(float(form.get("daily_budget_usd", "1.50")) * 100),
         is_cbo=(form.get("cbo_or_abo", "ABO") == "CBO"),
         ads=ads_data,
@@ -741,6 +779,9 @@ async def post_lang_wizard(request: Request, db: Session = Depends(get_db)):
         bid_amount_cents=bid_amount_cents,
         roas_floor=roas_floor,
         instagram_id=form.get("instagram_id", "").strip(),
+        adset_name=form.get("adset_name", "").strip(),
+        start_time=form.get("start_time", "").strip(),
+        end_time=form.get("end_time", "").strip(),
     )
 
     status = 200 if not result.get("errors") else 400

@@ -61,15 +61,16 @@
     <p class="text-xs text-muted">Marca los idiomas a incluir:</p>
     <div class="grid grid-cols-2 gap-2">
       {% for c in carnadas %}
-      <label class="flex items-start gap-2 p-2 bg-panel border border-border rounded cursor-pointer hover:border-accent">
-        <input type="checkbox" name="carnada_ids" value="{{ c.id }}" class="mt-1 w-4 h-4"
+      <label class="flex items-start gap-2 p-3 bg-panel border border-border rounded cursor-pointer hover:border-accent overflow-hidden">
+        <input type="checkbox" name="carnada_ids" value="{{ c.id }}" class="mt-1 w-4 h-4 flex-shrink-0"
                {% if c.id in selected_ids %}checked{% endif %}>
-        <div class="flex-1 text-sm">
-          <div class="font-medium flex items-center gap-2">
-            <span class="carnada-order hidden inline-flex items-center justify-center w-5 h-5 rounded-full bg-accent text-white text-xs font-bold"></span>
-            {{ c.language_name }}
+        <div class="flex-1 min-w-0 text-sm">
+          <div class="font-medium flex items-center gap-2 mb-1">
+            <span class="carnada-order hidden inline-flex items-center justify-center w-5 h-5 rounded-full bg-accent text-white text-xs font-bold flex-shrink-0"></span>
+            <span class="truncate">{{ c.language_name }}</span>
           </div>
-          <div class="text-xs text-muted truncate">{{ c.title }} — {{ c.body[:50] }}…</div>
+          <div class="text-xs text-muted truncate" title="{{ c.title }}"><span class="opacity-70">Título:</span> {{ c.title }}</div>
+          <div class="text-xs text-muted truncate" title="{{ c.body }}"><span class="opacity-70">Body:</span> {{ c.body[:60] }}{% if c.body|length > 60 %}…{% endif %}</div>
         </div>
       </label>
       {% endfor %}

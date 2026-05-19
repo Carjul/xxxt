@@ -57,12 +57,14 @@ def new_campaign(request: Request, db: Session = Depends(get_db)):
     except Exception:
         pass
 
+    from ..services.meta_locales import META_LOCALES
     return request.app.state.templates.TemplateResponse(request, "campaigns/wizard.html", {
         "request": request, "settings": s,
         "catalogs": catalogs, "sets": sets, "templates": templates,
         "accounts": accounts, "pages": pages, "pixels": pixels,
         "bid_strategies": BID_STRATEGIES, "ctas": CTAS,
         "objectives": OBJECTIVES, "event_types": EVENT_TYPES,
+        "locales": META_LOCALES,
     })
 
 
@@ -107,6 +109,23 @@ async def create_campaign(request: Request, db: Session = Depends(get_db)):
 
     save_template = cfg.get("save_as_template", "")
 
+    # Nuevos campos: nombres custom + scheduling + multi-locale
+    adset_name_custom = cfg.get("adset_name", "").strip()
+    ad_name_custom = cfg.get("ad_name", "").strip()
+    start_time = cfg.get("start_time", "").strip()
+    end_time = cfg.get("end_time", "").strip()
+    # locale_ids puede venir como múltiples inputs (chips) o coma-separados
+    try:
+        locale_ids_multi = form.getlist("locale_ids")
+    except Exception:
+        locale_ids_multi = []
+    locale_ids = []
+    for raw in locale_ids_multi:
+        for part in str(raw).split(","):
+            part = part.strip()
+            if part.isdigit():
+                locale_ids.append(int(part))
+
     log_lines = []
     out = {}
 
@@ -139,6 +158,7 @@ async def create_campaign(request: Request, db: Session = Depends(get_db)):
         targeting = {
             "age_min": age_min, "age_max": age_max,
             "geo_locations": {"countries": countries},
+            **({"locales": locale_ids} if locale_ids else {}),
             "publisher_platforms": ["facebook", "instagram", "audience_network", "messenger"],
             "facebook_positions": ["feed", "biz_disco_feed", "facebook_reels",
                                    "facebook_reels_overlay", "profile_feed", "right_hand_column",
@@ -152,7 +172,7 @@ async def create_campaign(request: Request, db: Session = Depends(get_db)):
         }
 
         adset_payload = {
-            "name": f"AS-{name}",
+            "name": (adset_name_custom if adset_name_custom else f"AS-{name}"),
             "campaign_id": camp_res["id"],
             "billing_event": "IMPRESSIONS",
             "optimization_goal": "OFFSITE_CONVERSIONS",
@@ -164,6 +184,10 @@ async def create_campaign(request: Request, db: Session = Depends(get_db)):
             "targeting": json.dumps(targeting),
             "status": "PAUSED",
         }
+        if start_time:
+            adset_payload["start_time"] = start_time
+        if end_time:
+            adset_payload["end_time"] = end_time
         if not cbo:
             # En ABO: budget + bid_strategy van en adset
             adset_payload["bid_strategy"] = bid_strategy
@@ -205,7 +229,7 @@ async def create_campaign(request: Request, db: Session = Depends(get_db)):
             story_spec["instagram_user_id"] = instagram_id
 
         creative_payload = {
-            "name": f"CR-{name}",
+            "name": (f"CR-{ad_name_custom}" if ad_name_custom else f"CR-{name}"),
             "object_story_spec": json.dumps(story_spec),
             "product_set_id": pset.fb_set_id,
         }
@@ -219,7 +243,7 @@ async def create_campaign(request: Request, db: Session = Depends(get_db)):
         log_lines.append(f"creative {creative_res['id']}")
 
         ad_payload = {
-            "name": f"AD-{name}",
+            "name": (ad_name_custom if ad_name_custom else f"AD-{name}"),
             "adset_id": adset_res["id"],
             "creative": json.dumps({"creative_id": creative_res["id"]}),
             "status": "PAUSED",

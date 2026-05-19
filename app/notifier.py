@@ -25,7 +25,7 @@ def send_telegram(message: str, token: Optional[str] = None, chat_id: Optional[s
         return False
     try:
         r = requests.post(
-            f"https://api.telegram.org/bot{token}/sendMessage", 
+            f"https://api.telegram.org/bot{token}/sendMessage",
             json={"chat_id": chat_id, "text": message, "parse_mode": "HTML", "disable_web_page_preview": True},
             timeout=15,
         )

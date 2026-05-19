@@ -107,14 +107,11 @@
 
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="block text-sm mb-1">Idioma del usuario target
-          {{ tip("Este es el idioma que se le mostrará al usuario REAL (el creativo sucio). Ej: pautas a Colombia → eliges Español. Pautas a US → eliges Inglés (US). Esto determina qué carnada del paquete se serve al target.") }}
+        <label class="block text-sm mb-1">Nombre del Ad Set <span class="text-xs text-muted">(opcional)</span>
+          {{ tip("Si lo dejas vacío usa AS-{nombre de campaña} por defecto.") }}
         </label>
-        <select name="adset_locale_id" required class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
-          {% for lid, code, label in locales %}
-            <option value="{{ lid }}" {% if lid == 6 %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
+        <input spellcheck="false" name="adset_name" placeholder="AS-BizOp US"
+               class="w-full bg-bg border border-border rounded px-3 py-2">
       </div>
       <div>
         <label class="block text-sm mb-1">Evento de optimización
@@ -123,6 +120,48 @@
         <select name="custom_event_type" class="w-full bg-bg border border-border rounded px-3 py-2">
           {% for code, label in event_types %}<option value="{{ code }}" {% if code == 'PURCHASE' %}selected{% endif %}>{{ label }}</option>{% endfor %}
         </select>
+      </div>
+    </div>
+
+    <div>
+      <label class="block text-sm mb-1">Idioma(s) del usuario target
+        {{ tip("Para US selecciona 'Inglés (US)' + 'Inglés (UK)' + 'Inglés (XX)' para que la regla matchee a usuarios con cualquier variante de inglés. Para Colombia 'Español (LATAM)', etc.") }}
+      </label>
+      <div class="locale-picker space-y-2" data-input-name="adset_locale_id">
+        <div class="locale-chips flex flex-wrap gap-2 min-h-[34px] p-2 bg-bg border border-border rounded">
+          <!-- chip default: Inglés (US) -->
+          <span class="locale-chip inline-flex items-center gap-1.5 px-2 py-1 rounded bg-accent/20 text-accent text-sm font-medium" data-id="6">
+            Inglés (US)
+            <button type="button" class="chip-remove w-4 h-4 inline-flex items-center justify-center rounded-full hover:bg-accent/30 text-xs leading-none">×</button>
+            <input type="hidden" name="adset_locale_id" value="6">
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          <select class="locale-picker-select flex-1 bg-bg border border-border rounded px-3 py-1.5 text-sm">
+            <option value="">— Elige un idioma para agregar —</option>
+            {% for lid, code, label in locales %}
+              <option value="{{ lid }}" data-label="{{ label }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="locale-add-btn bg-accent hover:bg-accent/80 text-white px-3 py-1.5 rounded text-sm flex items-center gap-1">
+            <span class="text-lg leading-none">+</span> Agregar idioma
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm mb-1">Fecha/hora de inicio <span class="text-xs text-muted">(opcional)</span>
+          {{ tip("Si dejas vacío, el adset arranca cuando lo actives manualmente en Ads Manager. Si pones fecha/hora, Meta lo programa para arrancar en ese momento. Formato: tu zona horaria local.") }}
+        </label>
+        <input type="datetime-local" name="start_time"
+               class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Fecha/hora de fin <span class="text-xs text-muted">(opcional)</span></label>
+        <input type="datetime-local" name="end_time"
+               class="w-full bg-bg border border-border rounded px-3 py-2 text-sm">
       </div>
     </div>
 
@@ -236,11 +275,18 @@
         <div class="text-xs text-muted mt-1">Texto real + carnadas multi-idioma</div>
       </div>
     </div>
-    <div>
-      <label class="block text-xs mb-1 text-muted">Call-to-Action (botón del ad)</label>
-      <select name="ads[IDX][cta_type]" class="w-full bg-bg border border-border rounded px-2 py-1.5 text-sm">
-        {% for c in ctas %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
-      </select>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs mb-1 text-muted">Nombre del anuncio <span class="opacity-70">(opcional)</span></label>
+        <input spellcheck="false" name="ads[IDX][ad_name]" placeholder="AD-BizOp-1"
+               class="w-full bg-bg border border-border rounded px-2 py-1.5 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs mb-1 text-muted">Call-to-Action (botón del ad)</label>
+        <select name="ads[IDX][cta_type]" class="w-full bg-bg border border-border rounded px-2 py-1.5 text-sm">
+          {% for c in ctas %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+        </select>
+      </div>
     </div>
   </div>
 </template>
@@ -281,5 +327,32 @@
 
   build(3);
 })();
+
+// Locale picker (chips estilo)
+document.querySelectorAll('.locale-picker').forEach(picker => {
+  const chips = picker.querySelector('.locale-chips');
+  const sel = picker.querySelector('.locale-picker-select');
+  const btn = picker.querySelector('.locale-add-btn');
+  const inputName = picker.dataset.inputName || 'adset_locale_id';
+  function selectedIds() { return [...chips.querySelectorAll('.locale-chip')].map(c => c.dataset.id); }
+  function addChip(id, label) {
+    if (selectedIds().includes(id)) return;
+    const chip = document.createElement('span');
+    chip.className = 'locale-chip inline-flex items-center gap-1.5 px-2 py-1 rounded bg-accent/20 text-accent text-sm font-medium';
+    chip.dataset.id = id;
+    chip.innerHTML = `${label} <button type="button" class="chip-remove w-4 h-4 inline-flex items-center justify-center rounded-full hover:bg-accent/30 text-xs leading-none">×</button><input type="hidden" name="${inputName}" value="${id}">`;
+    chip.querySelector('.chip-remove').addEventListener('click', () => chip.remove());
+    chips.appendChild(chip);
+  }
+  btn.addEventListener('click', () => {
+    if (!sel.value) return;
+    const opt = sel.options[sel.selectedIndex];
+    addChip(sel.value, opt.dataset.label || opt.text);
+    sel.value = '';
+  });
+  chips.querySelectorAll('.chip-remove').forEach(b => {
+    b.addEventListener('click', () => b.closest('.locale-chip').remove());
+  });
+});
 </script>
 {% endblock %}

@@ -130,6 +130,7 @@ def build_asset_feed_spec(real_media_id: str, default_media_id: str, is_video: b
                           real_url: str,
                           target_locale_id: int = 6,
                           target_locale_code: str = "en_XX",
+                          target_locale_ids: Optional[List[int]] = None,
                           carnadas: Optional[List[Dict[str, Any]]] = None,
                           cta_type: str = "LEARN_MORE") -> str:
     """
@@ -145,6 +146,8 @@ def build_asset_feed_spec(real_media_id: str, default_media_id: str, is_video: b
 
     rl = target_locale_code
     default_label = carnadas[0]["locale_code"]
+    # Si vienen varios locale IDs, la regla matchea TODOS ellos
+    rule_locales = target_locale_ids if target_locale_ids else [target_locale_id]
 
     media_key = "videos" if is_video else "images"
     id_key = "video_id" if is_video else "hash"
@@ -172,7 +175,7 @@ def build_asset_feed_spec(real_media_id: str, default_media_id: str, is_video: b
             descs .append({"adlabels": [{"name": rl}], "text": real_desc})
             links .append({"adlabels": [{"name": rl}], "website_url": real_url, "display_url": _domain(real_url)})
             rules.append({
-                "customization_spec": {"age_max": 65, "age_min": 13, "locales": [target_locale_id]},
+                "customization_spec": {"age_max": 65, "age_min": 13, "locales": rule_locales},
                 label_key: {"name": rl},
                 "body_label": {"name": rl},
                 "description_label": {"name": rl},
@@ -201,7 +204,7 @@ def build_asset_feed_spec(real_media_id: str, default_media_id: str, is_video: b
         descs .append({"adlabels": [{"name": rl}], "text": real_desc})
         links .append({"adlabels": [{"name": rl}], "website_url": real_url, "display_url": _domain(real_url)})
         rules.append({
-            "customization_spec": {"age_max": 65, "age_min": 13, "locales": [target_locale_id]},
+            "customization_spec": {"age_max": 65, "age_min": 13, "locales": rule_locales},
             label_key: {"name": rl}, "body_label": {"name": rl},
             "description_label": {"name": rl}, "link_url_label": {"name": rl},
             "title_label": {"name": rl}, "is_default": False,
@@ -281,6 +284,10 @@ def create_language_trick_multi_ad(
     bid_amount_cents: int = 0,
     roas_floor: float = 0.0,
     instagram_id: str = "",
+    adset_name: str = "",
+    adset_locale_ids: Optional[List[int]] = None,
+    start_time: str = "",
+    end_time: str = "",
 ) -> Dict[str, Any]:
     """
     Crea 1 campaña + 1 adset + N ads, donde cada ad tiene su propio
@@ -318,12 +325,13 @@ def create_language_trick_multi_ad(
     # 2. IG
     ig_id = get_page_backed_ig(page_id, token)
 
-    # 3. Targeting: usa el idioma del adset (lo que el usuario verá realmente)
-    targeting = build_targeting(countries, age_min, age_max, [adset_locale_id])
+    # 3. Targeting: usa todos los locales seleccionados (multi-variante de inglés, etc.)
+    locales_for_targeting = adset_locale_ids if adset_locale_ids else [adset_locale_id]
+    targeting = build_targeting(countries, age_min, age_max, locales_for_targeting)
 
-    # 4. AdSet (1 solo)
+    # 4. AdSet (1 solo) — usa adset_name si vino, sino el default
     adset_payload = {
-        "name": f"AS-{name}",
+        "name": (adset_name.strip() if adset_name and adset_name.strip() else f"AS-{name}"),
         "campaign_id": out["campaign_id"],
         "billing_event": "IMPRESSIONS",
         "optimization_goal": optimization_goal,
@@ -332,6 +340,11 @@ def create_language_trick_multi_ad(
         "status": "PAUSED",
         "access_token": token,
     }
+    # Programación opcional (start_time / end_time en formato ISO 8601)
+    if start_time:
+        adset_payload["start_time"] = start_time
+    if end_time:
+        adset_payload["end_time"] = end_time
     # En ABO: presupuesto + bid_strategy van en adset
     # En CBO: ya están en campaña; pero bid_amount / roas_average_floor van SIEMPRE en adset
     if not is_cbo:
@@ -370,6 +383,7 @@ def create_language_trick_multi_ad(
                 real_url=a["real_url"],
                 target_locale_id=adset_locale_id,
                 target_locale_code=adset_locale_code,
+                target_locale_ids=adset_locale_ids,
                 carnadas=a["carnadas"],
                 cta_type=a.get("cta_type", "LEARN_MORE"),
             )
@@ -377,8 +391,9 @@ def create_language_trick_multi_ad(
             out["errors"].append(f"ad #{idx} afs: {e}")
             continue
 
+        custom_ad_name = (a.get("ad_name") or "").strip()
         creative_payload = {
-            "name": f"CR-{name}-{idx}",
+            "name": (f"CR-{custom_ad_name}" if custom_ad_name else f"CR-{name}-{idx}"),
             "object_story_spec": json.dumps(story_spec),
             "asset_feed_spec": afs,
             "url_tags": a.get("url_tags", ""),
@@ -393,7 +408,7 @@ def create_language_trick_multi_ad(
         creative_id = r["id"]
 
         ad_payload = {
-            "name": f"AD-{name}-{idx}",
+            "name": (custom_ad_name if custom_ad_name else f"AD-{name}-{idx}"),
             "adset_id": out["adset_id"],
             "creative": json.dumps({"creative_id": creative_id}),
             "status": "PAUSED",
