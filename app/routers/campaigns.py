@@ -193,6 +193,7 @@ async def create_campaign(request: Request, db: Session = Depends(get_db)):
             "status": "PAUSED",
             "buying_type": "AUCTION",
             "special_ad_categories": json.dumps([]),
+            "is_adset_budget_sharing_enabled": False,
         }
         if cbo:
             # En CBO: budget + bid_strategy van en campaña
