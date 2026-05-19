@@ -16,6 +16,7 @@ from typing import Any as Session
 
 from ..database import get_db
 from ..meta_connections import get_active_token, get_effective_defaults
+from ..models import Campaign
 from ..services.language_models import MediaAsset, CopyBundle, LanguageCarnada
 from ..services.meta_locales import META_LOCALES, locale_by_id
 from ..services.language_trick import (
@@ -24,6 +25,28 @@ from ..services.language_trick import (
 )
 
 router = APIRouter()
+
+
+def _first_ad_result(result: dict):
+    ads = result.get("ads") or []
+    return ads[0] if ads else {}
+
+
+def _save_created_campaign(db: Session, *, name: str, ad_account_id: str, campaign_type: str, result: dict, config: dict):
+    first_ad = _first_ad_result(result)
+    campaign = Campaign(
+        fb_campaign_id=result.get("campaign_id"),
+        fb_adset_id=result.get("adset_id"),
+        fb_creative_id=result.get("creative_id") or first_ad.get("creative_id"),
+        fb_ad_id=result.get("ad_id") or first_ad.get("ad_id"),
+        name=name,
+        ad_account_id=ad_account_id.replace("act_", ""),
+        config=config,
+        campaign_type=campaign_type,
+    )
+    db.add(campaign)
+    db.commit()
+    return campaign
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -526,6 +549,7 @@ def new_normal_wizard(request: Request, db: Session = Depends(get_db)):
 @router.post("/campaigns/new-normal")
 async def post_normal_wizard(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
+    form_config = {k: v for k, v in form.items()}
     token = get_active_token(db)
     if not token:
         raise HTTPException(400, "No hay conexion Meta activa")
@@ -596,12 +620,24 @@ async def post_normal_wizard(request: Request, db: Session = Depends(get_db)):
         url_tags=form.get("url_tags", ""),
     )
     status = 200 if not result.get("errors") else 400
-    return JSONResponse({"ok": status == 200, "result": result}, status_code=status)
+    if status != 200:
+        return JSONResponse({"ok": False, "result": result}, status_code=status)
+
+    saved = _save_created_campaign(
+        db,
+        name=form["name"],
+        ad_account_id=act,
+        campaign_type="normal",
+        result=result,
+        config={**form_config, "ads": ads_data, "result": result},
+    )
+    return RedirectResponse(f"/campaigns?created={saved.id}", status_code=303)
 
 
 @router.post("/campaigns/new-language")
 async def post_lang_wizard(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
+    form_config = {k: v for k, v in form.items()}
     token = get_active_token(db)
     if not token:
         raise HTTPException(400, "No hay conexion Meta activa")
@@ -708,7 +744,18 @@ async def post_lang_wizard(request: Request, db: Session = Depends(get_db)):
     )
 
     status = 200 if not result.get("errors") else 400
-    return JSONResponse({"ok": status == 200, "result": result}, status_code=status)
+    if status != 200:
+        return JSONResponse({"ok": False, "result": result}, status_code=status)
+
+    saved = _save_created_campaign(
+        db,
+        name=form["name"],
+        ad_account_id=act,
+        campaign_type="language",
+        result=result,
+        config={**form_config, "ads": ads_data, "result": result},
+    )
+    return RedirectResponse(f"/campaigns?created={saved.id}", status_code=303)
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -778,4 +825,12 @@ async def create_lang_campaign(request: Request, db: Session = Depends(get_db)):
 
     if result.get("errors"):
         return JSONResponse({"ok": False, "errors": result["errors"], "ids": result}, status_code=400)
-    return JSONResponse({"ok": True, "ids": result})
+    saved = _save_created_campaign(
+        db,
+        name=form["name"],
+        ad_account_id=act,
+        campaign_type="language",
+        result=result,
+        config={k: v for k, v in form.items()} | {"result": result},
+    )
+    return RedirectResponse(f"/campaigns?created={saved.id}", status_code=303)
