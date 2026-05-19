@@ -48,6 +48,14 @@
         </select>
       </div>
     </div>
+    <div>
+      <label class="block text-sm font-medium mb-1 flex items-center">Optimización del ad set
+        {{ tip("Para catálogo de ventas usa Conversiones. Si eliges ROAS, se fuerza Valor/ROAS porque Meta lo requiere para esa bid strategy. Para tráfico puedes usar clics o vistas de landing.") }}
+      </label>
+      <select name="optimization_goal" class="w-full bg-bg border border-border rounded px-3 py-2">
+        {% for code, label in optimization_goals %}<option value="{{ code }}" {% if (form and form.optimization_goal == code) or (not form and code == 'OFFSITE_CONVERSIONS') %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
   </div>
 
   <div class="bg-panel border border-border rounded-lg p-5 space-y-4">

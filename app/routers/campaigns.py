@@ -20,6 +20,14 @@ BID_STRATEGIES = [
 CTAS = ["LEARN_MORE", "SHOP_NOW", "SIGN_UP", "SUBSCRIBE", "GET_OFFER", "APPLY_NOW", "DOWNLOAD"]
 OBJECTIVES = ["OUTCOME_SALES", "OUTCOME_LEADS", "OUTCOME_TRAFFIC", "OUTCOME_AWARENESS", "OUTCOME_ENGAGEMENT"]
 EVENT_TYPES = ["PURCHASE", "INITIATE_CHECKOUT", "ADD_TO_CART", "LEAD", "COMPLETE_REGISTRATION", "VIEW_CONTENT"]
+OPTIMIZATION_GOALS = [
+    ("OFFSITE_CONVERSIONS", "Conversiones (pixel)"),
+    ("VALUE", "Valor / ROAS"),
+    ("LANDING_PAGE_VIEWS", "Vistas de landing page"),
+    ("LINK_CLICKS", "Clics en enlace"),
+    ("IMPRESSIONS", "Impresiones"),
+    ("REACH", "Alcance"),
+]
 
 
 @router.get("/campaigns")
@@ -64,6 +72,7 @@ def new_campaign(request: Request, db: Session = Depends(get_db)):
         "accounts": accounts, "pages": pages, "pixels": pixels,
         "bid_strategies": BID_STRATEGIES, "ctas": CTAS,
         "objectives": OBJECTIVES, "event_types": EVENT_TYPES,
+        "optimization_goals": OPTIMIZATION_GOALS,
         "locales": META_LOCALES,
     })
 
@@ -92,6 +101,7 @@ async def create_campaign(request: Request, db: Session = Depends(get_db)):
     page_id = cfg.get("page_id")
     pixel_id = cfg.get("pixel_id")
     instagram_id = cfg.get("instagram_id", "") or None
+    optimization_goal = cfg.get("optimization_goal", "OFFSITE_CONVERSIONS")
     custom_event_type = cfg.get("custom_event_type", "PURCHASE")
     set_db_id = int(cfg.get("product_set_id"))
     pset = db.query(ProductSet).filter(ProductSet.id == set_db_id).first()
@@ -114,6 +124,10 @@ async def create_campaign(request: Request, db: Session = Depends(get_db)):
     ad_name_custom = cfg.get("ad_name", "").strip()
     start_time = cfg.get("start_time", "").strip()
     end_time = cfg.get("end_time", "").strip()
+    if budget_type == "lifetime" and not end_time:
+        raise HTTPException(400, "El presupuesto total/lifetime necesita fecha de fin")
+    if bid_strategy == "LOWEST_COST_WITH_MIN_ROAS":
+        optimization_goal = "VALUE"
     # locale_ids puede venir como múltiples inputs (chips) o coma-separados
     try:
         locale_ids_multi = form.getlist("locale_ids")
@@ -171,16 +185,19 @@ async def create_campaign(request: Request, db: Session = Depends(get_db)):
             "targeting_automation": {"advantage_audience": 0},
         }
 
+        promoted_object = {"product_set_id": pset.fb_set_id}
+        if optimization_goal in ("OFFSITE_CONVERSIONS", "VALUE"):
+            promoted_object.update({
+                "pixel_id": pixel_id,
+                "custom_event_type": custom_event_type,
+            })
+
         adset_payload = {
             "name": (adset_name_custom if adset_name_custom else f"AS-{name}"),
             "campaign_id": camp_res["id"],
             "billing_event": "IMPRESSIONS",
-            "optimization_goal": "OFFSITE_CONVERSIONS",
-            "promoted_object": json.dumps({
-                "product_set_id": pset.fb_set_id,
-                "pixel_id": pixel_id,
-                "custom_event_type": custom_event_type,
-            }),
+            "optimization_goal": optimization_goal,
+            "promoted_object": json.dumps(promoted_object),
             "targeting": json.dumps(targeting),
             "status": "PAUSED",
         }
@@ -262,6 +279,7 @@ async def create_campaign(request: Request, db: Session = Depends(get_db)):
             "accounts": [], "pages": [], "pixels": [],
             "bid_strategies": BID_STRATEGIES, "ctas": CTAS,
             "objectives": OBJECTIVES, "event_types": EVENT_TYPES,
+            "optimization_goals": OPTIMIZATION_GOALS,
             "form": cfg,
         }, status_code=400)
 

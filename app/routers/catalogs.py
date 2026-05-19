@@ -5,6 +5,7 @@ from typing import Any as Session
 
 from .. import meta_api
 from ..database import get_db
+from ..meta_connections import get_effective_defaults
 from ..models import Catalog, AppSettings
 from ..config import PUBLIC_BASE_URL
 
@@ -23,6 +24,13 @@ def list_catalogs(request: Request, db: Session = Depends(get_db)):
 @router.get("/catalogs/new")
 def new_catalog(request: Request, db: Session = Depends(get_db)):
     s = db.query(AppSettings).first()
+    if not s:
+        s = AppSettings()
+        db.add(s)
+        db.commit()
+    defaults = get_effective_defaults(db)
+    for key, value in defaults.items():
+        setattr(s, f"default_{key}", value)
     return request.app.state.templates.TemplateResponse(request, "catalogs/create.html", {
         "request": request, "settings": s,
     })
@@ -59,8 +67,13 @@ def create_catalog(
             except Exception as e:
                 error = (error + " | " if error else "") + f"Feed no creado: {e}"
         except Exception as e:
+            s = db.query(AppSettings).first()
+            if s:
+                defaults = get_effective_defaults(db)
+                for key, value in defaults.items():
+                    setattr(s, f"default_{key}", value)
             return request.app.state.templates.TemplateResponse(request, "catalogs/create.html", {
-                "request": request, "settings": db.query(AppSettings).first(),
+                "request": request, "settings": s,
                 "error": f"Error creando catálogo en Meta: {e}",
                 "form": {"name": name, "business_id": business_id, "pixel_id": pixel_id},
             })
